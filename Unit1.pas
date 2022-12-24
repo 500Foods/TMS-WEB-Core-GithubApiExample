@@ -4,7 +4,7 @@ interface
 
 uses
   System.SysUtils, System.Classes, JS, Web, WEBLib.Graphics, WEBLib.Controls, WebLib.JSON, jsdelphisystem,
-  WEBLib.Forms, WEBLib.Dialogs, Vcl.Controls, WEBLib.WebCtrls,
+  WEBLib.Forms, WEBLib.Dialogs, Vcl.Controls, WEBLib.WebCtrls, WEBLib.WebTools,
   Vcl.StdCtrls, WEBLib.StdCtrls, WEBLib.REST;
 
 type
@@ -13,7 +13,8 @@ type
     WebEdit1: TWebEdit;
     divTabulator: TWebHTMLDiv;
     divChart: TWebHTMLDiv;
-    [async] procedure WebEdit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    procedure WebEdit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    [async] procedure GetGPAT;
     procedure WebFormShow(Sender: TObject);
     procedure WebFormCreate(Sender: TObject);
     [async] procedure UpdateChart;
@@ -26,6 +27,7 @@ type
     tabRepos: JSValue;
     tabReposBuilt: Boolean;
     GitHubToken: String;
+    automate: Boolean;
   end;
 
 var
@@ -101,7 +103,12 @@ begin
       if (NumRepos > 0) {
 
         divChart.classList.remove('d-none');
-        divTabulator.classList.replace('h-100','h-50');
+        if (pas.Unit1.Form1.automate == true) {
+          divTabulator.classList.replace('h-100','d-none');
+        }
+        else {
+          divTabulator.classList.replace('h-100','h-50');
+        }
 
         // Get data from all of the repositories
 
@@ -163,6 +170,10 @@ begin
         // https://observablehq.com/@stuartathompson/a-step-by-step-guide-to-the-d3-v4-stacked-bar-chart
 
         var margin = 8;
+        if (pas.Unit1.Form1.automate) {
+          margin = 2;
+          divChart.style.setProperty('background-color', '#1c1c1c','important');
+        }
         var width = divChart.offsetWidth - (margin * 6);
         var height = divChart.offsetHeight - (margin * 6);
         var colors = ["#C9D6DF", "#F7EECF", "#E3E1B2", "#F9CAC8"];
@@ -213,20 +224,26 @@ begin
         var xAxis = d3.axisBottom(x)
                       .ticks(16)
                       .tickFormat((d, i) => formatDate(parseDate(trafficdates[d])));
-        svg.append('text')
-           .attr('x', width/2)
-           .attr('y', height + 30)
-           .attr('text-anchor', 'middle')
-           .text('UTC Date');
+
+        if (pas.Unit1.Form1.automate == false) {
+          svg.append('text')
+             .attr('x', width/2)
+             .attr('y', height + 30)
+             .attr('text-anchor', 'middle')
+             .text('UTC Date');
+        }
 
 
         // Deal with the Y-Axis
         var y = d3.scaleLinear().domain([0, yMax]).range([height,0])
         var yAxis = d3.axisLeft(y);
-        svg.append('text')
-           .attr('text-anchor', 'middle')
-           .attr('transform', 'translate(-8,'+ height/2 + ')rotate(-90)')
-           .text('Unique Visitors');
+
+        if (pas.Unit1.Form1.automate == false) {
+          svg.append('text')
+             .attr('text-anchor', 'middle')
+             .attr('transform', 'translate(-8,'+ height/2 + ')rotate(-90)')
+             .text('Unique Visitors');
+        }
 
 
         // Draw the bar charts
@@ -237,7 +254,7 @@ begin
           .data(d => d).enter()
             .append('rect')
             .attr('x', (d,i) => x(i) - (width/ChartData.length/2))
-            .attr('width', width/ChartData.length)
+            .attr('width', (width/ChartData.length))
             .attr('height', d => {
                return y(d[0])-y(d[1])
              })
@@ -248,13 +265,15 @@ begin
             .append("title")
             .text(function(d,i) {return d.key });  // hover text
 
-        svg.append('g')
-          .attr("transform", "translate("+margin * 5+",0)")
-          .call(yAxis);
+        if (pas.Unit1.Form1.automate == false) {
+          svg.append('g')
+            .attr("transform", "translate("+margin * 5+",0)")
+            .call(yAxis);
 
-        svg.append('g')
-          .attr("transform", "translate(0,"+(height)+")")
-          .call(xAxis);
+          svg.append('g')
+            .attr("transform", "translate(0,"+(height)+")")
+            .call(xAxis);
+        }
 
         svg.selectAll("line").style("stroke", "#6c757d");  // Bootsrap secondary color
         svg.selectAll("path").style("stroke", "#6c757d");
@@ -275,6 +294,16 @@ begin
 end;
 
 procedure TForm1.WebEdit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+begin
+
+  if (Key = VK_RETURN) then
+  begin
+    Form1.GitHubToken := Form1.WebEdit1.Text;
+    GetGPAT;
+  end;
+end;
+
+procedure TForm1.GetGPAT;
 var
   WebRequest: TWebHTTPRequest;
   WebResponse: TJSXMLHTTPRequest;
@@ -283,42 +312,38 @@ var
 
 begin
 
-  if Key = VK_RETURN then
+  if Length(Form1.GitHubToken) < 50 then
   begin
-    GitHubToken := WebEdit1.Text;
+    Form1.WebEdit1.Text := '';
+    Form1.WebEdit1.TextHint := 'Token is too short. Please try again.';
+  end
+  else
+  begin
+    Form1.WebEdit1.Text := '';
+    Form1.WebEdit1.TextHint := 'Retrieving Repositories. Please Wait.';
 
-    if Length(GitHubToken) < 50 then
-    begin
-      WebEdit1.Text := '';
-      WebEdit1.TextHint := 'Token is too short. Please try again.';
-    end
-    else
-    begin
-      WebEdit1.Text := '';
-      WebEdit1.TextHint := 'Retrieving Repositories. Please Wait.';
+    WebRequest := TWebHTTPRequest.Create(Self);
+    WebRequest.URL := 'https://api.github.com/user/repos';
+    WebRequest.Headers.AddPair('Accept','application/vnd.github+json');
+    WebRequest.Headers.AddPair('Authorization','Bearer '+Form1.GitHubToken);
+    WebResponse := await(TJSXMLHTTPRequest, WebRequest.Perform());
+    Data := String(WebResponse.Response);
 
-      WebRequest := TWebHTTPRequest.Create(Self);
-      WebRequest.URL := 'https://api.github.com/user/repos';
-      WebRequest.Headers.AddPair('Accept','application/vnd.github+json');
-      WebRequest.Headers.AddPair('Authorization','Bearer '+GitHubToken);
-      WebResponse := await(TJSXMLHTTPRequest, WebRequest.Perform());
-      Data := String(WebResponse.Response);
-
-      try
-        JSONData := TJSONObject.ParseJSONValue(Data) as TJSONArray;
-        asm
+    try
+      JSONData := TJSONObject.ParseJSONValue(Data) as TJSONArray;
+      asm
 //          console.log(JSON.parse(Data));
-          this.tabRepos.setData(JSON.parse(Data));
-          this.tabRepos.selectRow();
-        end;
-        WebEdit1.Visible := False;
-        divTabulator.ElementHandle.classList.remove('d-none');
-        UpdateChart;
-      except on E: Exception do
-        begin
-          WebEdit1.Text := '';
-          WebEdit1.TextHint := 'Retrieval Failed. Please try again.';
-        end;
+        this.tabRepos.setData(JSON.parse(Data));
+        this.tabRepos.selectRow();
+      end;
+      Form1.WebEdit1.Visible := False;
+      if not(automate)
+      then Form1.divTabulator.ElementHandle.classList.remove('d-none');
+      Form1.UpdateChart;
+    except on E: Exception do
+      begin
+        Form1.WebEdit1.Text := '';
+        Form1.WebEdit1.TextHint := 'Retrieval Failed. Please try again.';
       end;
     end;
   end;
@@ -371,12 +396,37 @@ begin
     });
     this.tabRepos.on("tableBuilt", function(){
       pas.Unit1.Form1.tabReposBuilt = true;
+      if (pas.Unit1.Form1.automate == true) {
+        pas.Unit1.Form1.GetGPAT();
+      }
     });
     this.tabRepos.on("rowSelectionChanged", function(data, rows){
       //rows - array of row components for the selected rows in order of selection
       //data - array of data objects for the selected rows in order of selection
       pas.Unit1.Form1.UpdateChart();
     });
+  end;
+
+
+  // Automatic?
+  automate := false;
+  if ((GetQueryParam('GPAT') <> '')    and
+      (GetQueryParam('WIDTH') <> '')   and
+      (GetQueryParam('HEIGHT') <> '')) then
+  begin
+    WebEdit1.Text := GetQueryParam('GPAT');
+    GitHubToken := WebEdit1.Text;
+    automate := true;
+    divTabulator.Visible := False;
+    divMain.ElementClassName := '';
+    divChart.ElementClassName := 'overflow-hidden bg-dark order-1';
+    divChart.ElementPosition := epAbsolute;
+    divChart.HeightStyle := ssAbsolute;
+    divChart.WidthStyle := ssAbsolute;
+    divChart.Width := StrToInt(GetQueryParam('WIDTH'));
+    divChart.Height := StrToInt(GetQueryParam('HEIGHT'));
+    divChart.Top := 0;
+    divChart.Left := 0;
   end;
 end;
 

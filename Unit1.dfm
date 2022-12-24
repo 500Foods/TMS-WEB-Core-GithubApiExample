@@ -35,6 +35,7 @@ object Form1: TForm1
       Height = 40
       Alignment = taCenter
       ElementClassName = 'w-100 p-2 rounded m-auto border border-secondary border-2 '
+      ElementID = 'WebEdit1'
       ElementFont = efCSS
       ElementPosition = epIgnore
       HeightPercent = 100.000000000000000000
