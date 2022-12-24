@@ -173,6 +173,10 @@ begin
         if (pas.Unit1.Form1.automate) {
           margin = 2;
           divChart.style.setProperty('background-color', '#1c1c1c','important');
+          divMain.style.setProperty('background-color', '#1c1c1c','important');
+          divChart.style.setProperty('border-radius', '6px','important');
+          divMain.style.setProperty('border-radius', '6px','important');
+          document.body.style.setProperty('background-color', '#1c1c1c','important');
         }
         var width = divChart.offsetWidth - (margin * 6);
         var height = divChart.offsetHeight - (margin * 6);
@@ -419,6 +423,7 @@ begin
     automate := true;
     divTabulator.Visible := False;
     divMain.ElementClassName := '';
+    Form1.ElementClassName := '';
     divChart.ElementClassName := 'overflow-hidden bg-dark order-1';
     divChart.ElementPosition := epAbsolute;
     divChart.HeightStyle := ssAbsolute;
