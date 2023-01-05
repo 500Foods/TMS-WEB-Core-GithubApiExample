@@ -1,6 +1,7 @@
 object Form1: TForm1
   Width = 640
   Height = 555
+  Color = clBlack
   CSSLibrary = cssBootstrap
   ElementClassName = 'vw-100 vh-100 d-flex p-2 bg-black'
   ElementFont = efCSS
@@ -40,6 +41,7 @@ object Form1: TForm1
       ElementPosition = epIgnore
       HeightPercent = 100.000000000000000000
       TextHint = 'Please Enter a GitHub Personal Access Token and Hit Enter.'
+      Visible = False
       WidthStyle = ssAuto
       WidthPercent = 100.000000000000000000
       OnKeyDown = WebEdit1KeyDown
@@ -72,6 +74,7 @@ object Form1: TForm1
       ElementPosition = epIgnore
       ElementFont = efCSS
       Role = ''
+      Visible = False
     end
   end
 end

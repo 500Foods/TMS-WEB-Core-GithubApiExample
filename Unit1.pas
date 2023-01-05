@@ -79,11 +79,16 @@ end;
 procedure TForm1.UpdateChart;
 var
   NumRepos: Integer;
+  bgcolor: String;
 begin
   if (tabReposBuilt) then
   begin
 
     NumRepos := 0;
+
+    bgcolor := '#11c1c';
+    if GetQueryParam('BG') <> ''
+    then bgcolor := GetQueryParam('BG');
 
     asm
       var allrepodata = {};
@@ -172,11 +177,11 @@ begin
         var margin = 8;
         if (pas.Unit1.Form1.automate) {
           margin = 2;
-          divChart.style.setProperty('background-color', '#1c1c1c','important');
-          divMain.style.setProperty('background-color', '#1c1c1c','important');
+          divChart.style.setProperty('background-color', bgcolor,'important');
+          divMain.style.setProperty('background-color', bgcolor,'important');
           divChart.style.setProperty('border-radius', '6px','important');
           divMain.style.setProperty('border-radius', '6px','important');
-          document.body.style.setProperty('background-color', '#1c1c1c','important');
+          document.body.style.setProperty('background-color', bgcolor,'important');
         }
         var width = divChart.offsetWidth - (margin * 6);
         var height = divChart.offsetHeight - (margin * 6);
@@ -289,6 +294,7 @@ begin
 
     end;
 
+    divChart.Visible := True;
     if (NumRepos = 0) then
     begin
       divChart.ElementHandle.classList.add('d-none');
@@ -354,6 +360,8 @@ begin
 end;
 
 procedure TForm1.WebFormCreate(Sender: TObject);
+var
+  bg: String;
 begin
   tabReposBuilt := False;
 
@@ -430,9 +438,25 @@ begin
     divChart.WidthStyle := ssAbsolute;
     divChart.Width := StrToInt(GetQueryParam('WIDTH'));
     divChart.Height := StrToInt(GetQueryParam('HEIGHT'));
-    divChart.Top := 0;
-    divChart.Left := 0;
+    divChart.Top := StrToIntDef(GetQueryParam('Y'),0);
+    divChart.Left := StrToIntDef(GetQueryParam('X'),0);
   end;
+
+  if automate = false
+  then WebEdit1.Visible := True;
+
+
+  bg := GetQueryParam('BG');
+  if bg <> '' then
+  begin
+    asm
+      document.body.style.setProperty('background-color',bg);
+      divMain.style.setProperty('background-color',bg);
+      divTabulator.style.setProperty('background-color',bg);
+      divChart.style.setProperty('background-color',bg);
+    end;
+  end;
+
 end;
 
 procedure TForm1.WebFormResize(Sender: TObject);
