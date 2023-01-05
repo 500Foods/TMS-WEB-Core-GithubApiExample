@@ -28,6 +28,9 @@ type
     tabReposBuilt: Boolean;
     GitHubToken: String;
     automate: Boolean;
+    ParamTop: Integer;
+    ParamLeft: Integer;
+    ParamFS: Integer;
   end;
 
 var
@@ -188,6 +191,8 @@ begin
         var colors = ["#C9D6DF", "#F7EECF", "#E3E1B2", "#F9CAC8"];
         var parseDate = d3.utcParse("%Y-%m-%d");
         var formatDate = d3.timeFormat("%b-%d");           // Jan-01
+        var ParamX = pas.Unit1.Form1.ParamLeft;
+        var ParamY = pas.Unit1.Form1.ParamTop;
 
         // Replace chart whenever we're here    
         divChart.innerHTML = '';
@@ -196,13 +201,13 @@ begin
         // Here we're positioning it with a bit of margin
         var svg = d3.select("#divChart")
                     .append("svg")
-                    .attr("width", width + (margin * 6))
-                    .attr("height", height + (margin * 6))
+                    .attr("width", width + (margin * 6) + ParamX)
+                    .attr("height", height + (margin * 6) + ParamY)
 //                    .attr("transform", "translate("+margin+","+margin+")")
                     .append("g")
                     .attr("width", width - (margin * 8))
                     .attr("height", height - (margin * 8))
-                    .attr("transform", "translate("+(margin * 2) +","+(margin * 2)+")");
+                    .attr("transform", "translate("+((margin * 2) + ParamX) +","+((margin * 2)+ParamY)+")");
 
 
         // This is the insanity needed to create the stacked portion of the bar chart
@@ -239,19 +244,21 @@ begin
              .attr('x', width/2)
              .attr('y', height + 30)
              .attr('text-anchor', 'middle')
-             .text('UTC Date');
+             .text('UTC Date')
+             .style('font-size', '12px');
         }
 
 
         // Deal with the Y-Axis
-        var y = d3.scaleLinear().domain([0, yMax]).range([height,0])
+        var y = d3.scaleLinear().domain([0, yMax]).range([height - ParamY,0])
         var yAxis = d3.axisLeft(y);
 
         if (pas.Unit1.Form1.automate == false) {
           svg.append('text')
              .attr('text-anchor', 'middle')
              .attr('transform', 'translate(-8,'+ height/2 + ')rotate(-90)')
-             .text('Unique Visitors');
+             .text('Unique Visitors')
+             .style('font-size', '12px');
         }
 
 
@@ -259,20 +266,47 @@ begin
         svg.selectAll('g')
            .data(stack).enter()
            .append('g')
-          .selectAll('rect')
-          .data(d => d).enter()
-            .append('rect')
-            .attr('x', (d,i) => x(i) - (width/ChartData.length/2))
-            .attr('width', (width/ChartData.length))
-            .attr('height', d => {
-               return y(d[0])-y(d[1])
-             })
-            .attr('y', d => y(d[1]))
-            .attr('fill', "#F00")
-            .attr('stroke', 'black')
-            .attr('stroke-width', 1)
-            .append("title")
-            .text(function(d,i) {return d.key });  // hover text
+           .selectAll('rect')
+           .data(d => d)
+           .enter()
+           .each(function(p,j) {
+             d3.select(this)
+               .append('rect')
+               .attr('x', (d,i) => x(j) - (width/ChartData.length/2))
+               .attr('y', d => y(d[1]))
+               .attr('width', (width/ChartData.length))
+               .attr('height', d => {
+                 return y(d[0])-y(d[1])
+               })
+               .attr('fill', "#F00")
+               .attr('stroke', 'black')
+               .attr('stroke-width', 1)
+               .append("title")
+               .text(function(d,i) {
+                 return d.key
+               });
+             d3.select(this)
+               .append("text")
+               .attr('x', (d,i) => x(j))
+               .attr('y', d => y(d[1])+(y(d[0])-y(d[1]))/2+(parseInt(pas.Unit1.Form1.ParamFS) / 3))
+               .attr('width', (width/ChartData.length))
+               .attr('height', d => {
+                 return y(d[0])-y(d[1])
+               })
+               .attr("text-anchor", "middle")
+               .attr("dominant-baseliner", "middle")
+               .style("font-size", parseInt(pas.Unit1.Form1.ParamFS)+"px")
+               .attr("fill", "white")
+               .text( d => {
+                 if (( y(d[0])-y(d[1]) ) == 0) {
+                  return ''
+                 }
+                 else {
+                   return d.key.split('-').pop().replace(/[^A-Z]+/g, "")
+                 }
+               })
+             });
+
 
         if (pas.Unit1.Form1.automate == false) {
           svg.append('g')
@@ -286,10 +320,11 @@ begin
 
         svg.selectAll("line").style("stroke", "#6c757d");  // Bootsrap secondary color
         svg.selectAll("path").style("stroke", "#6c757d");
+
         svg.selectAll("text").style("stroke", "white");
         svg.selectAll("text").style("fill", "white");
         svg.selectAll("text").style("stroke-width", "0.2");
-        svg.selectAll("text").style("font-size", "10px");
+//        svg.selectAll("text").style("font-size", "10px");
       }
 
     end;
@@ -422,6 +457,8 @@ begin
 
   // Automatic?
   automate := false;
+  ParamTop := 0;
+  ParamLeft := 0;
   if ((GetQueryParam('GPAT') <> '')    and
       (GetQueryParam('WIDTH') <> '')   and
       (GetQueryParam('HEIGHT') <> '')) then
@@ -438,8 +475,11 @@ begin
     divChart.WidthStyle := ssAbsolute;
     divChart.Width := StrToInt(GetQueryParam('WIDTH'));
     divChart.Height := StrToInt(GetQueryParam('HEIGHT'));
-    divChart.Top := StrToIntDef(GetQueryParam('Y'),0);
-    divChart.Left := StrToIntDef(GetQueryParam('X'),0);
+    divChart.Top := 0;
+    divChart.Left := 0;
+    ParamTop := StrToIntDef(GetQueryParam('Y'),0);
+    ParamLeft := StrToIntDef(GetQueryParam('X'),0);
+    ParamFS := StrToIntDef(GetQueryParam('FS'),10);
   end;
 
   if automate = false
