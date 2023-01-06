@@ -66,7 +66,7 @@ object Form1: TForm1
       Top = 223
       Width = 441
       Height = 122
-      ElementClassName = 'overflow-hidden bg-dark d-none flex-fill h-50 order-1 '
+      ElementClassName = 'calendar overflow-hidden bg-dark d-none flex-fill h-50 order-1 '
       ElementID = 'divChart'
       HeightStyle = ssAuto
       WidthStyle = ssAuto

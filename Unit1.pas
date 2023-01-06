@@ -83,15 +83,33 @@ procedure TForm1.UpdateChart;
 var
   NumRepos: Integer;
   bgcolor: String;
+
+  calname: String;
 begin
   if (tabReposBuilt) then
   begin
 
     NumRepos := 0;
 
-    bgcolor := '#11c1c';
+    bgcolor := '#1c1c1c';
     if GetQueryParam('BG') <> ''
     then bgcolor := GetQueryParam('BG');
+
+    if GetQueryParam('CALENDAR') <> '' then
+    begin
+      divChart.Visible := True;
+      calname := GetQueryPAram('CALENDAR');
+
+      divChart.ElementHandle.style.setProperty('background-color',bgcolor,'important');
+      divChart.Left := ParamLeft;
+      divChart.top := ParamTop;
+      asm
+        document.body.style.backgroundColor = bgcolor;
+        GitHubCalendar(".calendar", calname, { responsive: true });
+      end;
+
+      exit;
+    end;
 
     asm
       var allrepodata = {};
@@ -295,6 +313,7 @@ begin
                })
                .attr("text-anchor", "middle")
                .attr("dominant-baseliner", "middle")
+               .attr("pointer-events", "none")
                .style("font-size", parseInt(pas.Unit1.Form1.ParamFS)+"px")
                .attr("fill", "white")
                .text( d => {
@@ -469,7 +488,7 @@ begin
     divTabulator.Visible := False;
     divMain.ElementClassName := '';
     Form1.ElementClassName := '';
-    divChart.ElementClassName := 'overflow-hidden bg-dark order-1';
+    divChart.ElementClassName := 'overflow-hidden bg-dark order-1 calendar';
     divChart.ElementPosition := epAbsolute;
     divChart.HeightStyle := ssAbsolute;
     divChart.WidthStyle := ssAbsolute;
@@ -490,7 +509,7 @@ begin
   if bg <> '' then
   begin
     asm
-      document.body.style.setProperty('background-color',bg);
+      document.body.style.setProperty('background',bg);
       divMain.style.setProperty('background-color',bg);
       divTabulator.style.setProperty('background-color',bg);
       divChart.style.setProperty('background-color',bg);
