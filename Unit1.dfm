@@ -21,8 +21,8 @@ object Form1: TForm1
     Width = 561
     Height = 401
     ElementClassName = 
-      'd-flex flex-fill rounded border border-secondary border-2 bg-dar' +
-      'k p-2 flex-column overflow-hidden gap-1'
+      'd-flex flex-fill rounded border border-secondary border-2 p-2 fl' +
+      'ex-column overflow-hidden gap-1'
     ElementID = 'divMain'
     HeightStyle = ssAuto
     WidthStyle = ssAuto
@@ -66,7 +66,7 @@ object Form1: TForm1
       Top = 223
       Width = 441
       Height = 122
-      ElementClassName = 'calendar overflow-hidden bg-dark d-none flex-fill h-50 order-1 '
+      ElementClassName = 'calendar overflow-hidden  d-none flex-fill h-50 w-100 order-1 '
       ElementID = 'divChart'
       HeightStyle = ssAuto
       WidthStyle = ssAuto
@@ -74,7 +74,6 @@ object Form1: TForm1
       ElementPosition = epIgnore
       ElementFont = efCSS
       Role = ''
-      Visible = False
     end
   end
 end

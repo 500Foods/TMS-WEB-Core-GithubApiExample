@@ -8,6 +8,9 @@
     margin: 0 auto;
 }
 
+.color-fg-muted {
+  color: #bbbbbb !important;
+}
 .calendar-graph text.wday,
 .calendar-graph text.month {
     font-size: 10px;
@@ -125,3 +128,4 @@ h2.f4.text-normal.mb-3 {
 #user-activity-overview{
     display:none;
 }
+

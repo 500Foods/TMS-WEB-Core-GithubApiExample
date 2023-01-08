@@ -82,29 +82,34 @@ end;
 procedure TForm1.UpdateChart;
 var
   NumRepos: Integer;
-  bgcolor: String;
-
   calname: String;
+  bg: string;
 begin
   if (tabReposBuilt) then
   begin
 
     NumRepos := 0;
 
-    bgcolor := '#1c1c1c';
-    if GetQueryParam('BG') <> ''
-    then bgcolor := GetQueryParam('BG');
+
+    bg := GetQueryParam('BG');
+    if bg = ''
+    then bg := '#212529';
+    asm
+      document.body.style.setProperty('background',bg);
+//      divMain.style.setProperty('background-color',bg);
+//      divTabulator.style.setProperty('background-color',bg);
+//      divChart.style.setProperty('background-color',bg);
+    end;
+
 
     if GetQueryParam('CALENDAR') <> '' then
     begin
       divChart.Visible := True;
       calname := GetQueryPAram('CALENDAR');
 
-      divChart.ElementHandle.style.setProperty('background-color',bgcolor,'important');
       divChart.Left := ParamLeft;
       divChart.top := ParamTop;
       asm
-        document.body.style.backgroundColor = bgcolor;
         GitHubCalendar(".calendar", calname, { responsive: true });
       end;
 
@@ -198,11 +203,11 @@ begin
         var margin = 8;
         if (pas.Unit1.Form1.automate) {
           margin = 2;
-          divChart.style.setProperty('background-color', bgcolor,'important');
-          divMain.style.setProperty('background-color', bgcolor,'important');
-          divChart.style.setProperty('border-radius', '6px','important');
-          divMain.style.setProperty('border-radius', '6px','important');
-          document.body.style.setProperty('background-color', bgcolor,'important');
+//          divChart.style.setProperty('background-color', bgcolor,'important');
+//          divMain.style.setProperty('background-color', bgcolor,'important');
+//          divChart.style.setProperty('border-radius', '6px','important');
+//          divMain.style.setProperty('border-radius', '6px','important');
+//          document.body.style.setProperty('background-color', bgcolor,'important');
         }
         var width = divChart.offsetWidth - (margin * 6);
         var height = divChart.offsetHeight - (margin * 6);
@@ -478,6 +483,7 @@ begin
   automate := false;
   ParamTop := 0;
   ParamLeft := 0;
+  ParamFS := 10;
   if ((GetQueryParam('GPAT') <> '')    and
       (GetQueryParam('WIDTH') <> '')   and
       (GetQueryParam('HEIGHT') <> '')) then
@@ -488,7 +494,7 @@ begin
     divTabulator.Visible := False;
     divMain.ElementClassName := '';
     Form1.ElementClassName := '';
-    divChart.ElementClassName := 'overflow-hidden bg-dark order-1 calendar';
+    divChart.ElementClassName := 'overflow-hidden order-1 calendar';
     divChart.ElementPosition := epAbsolute;
     divChart.HeightStyle := ssAbsolute;
     divChart.WidthStyle := ssAbsolute;
@@ -503,18 +509,6 @@ begin
 
   if automate = false
   then WebEdit1.Visible := True;
-
-
-  bg := GetQueryParam('BG');
-  if bg <> '' then
-  begin
-    asm
-      document.body.style.setProperty('background',bg);
-      divMain.style.setProperty('background-color',bg);
-      divTabulator.style.setProperty('background-color',bg);
-      divChart.style.setProperty('background-color',bg);
-    end;
-  end;
 
 end;
 

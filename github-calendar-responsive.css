@@ -9,8 +9,15 @@
 #divChart > div.position-relative > div {
   border: none !important;
 }
+
+
+.color-fg-muted {
+  color: #BBBBBB;
+}
+
 .text-muted {
   font-size: 18px;
+  color: #BBBBBB !important;
 }
 rect.ContributionCalendar-day[data-level='0'] {
     fill: var(--color-calendar-graph-day-bg);
