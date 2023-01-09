@@ -3,13 +3,12 @@
   --color-calendar-graph-day-L3-bg: #39dd34;
   --color-calendar-graph-day-L2-bg: #45a045;
   --color-calendar-graph-day-L1-bg: #047526;
-  --color-calendar-graph-day-bg: #0a4208;
+  --color-calendar-graph-day-bg: #104030;
 }
 
 #divChart > div.position-relative > div {
   border: none !important;
 }
-
 
 .color-fg-muted {
   color: #BBBBBB;

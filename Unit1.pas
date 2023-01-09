@@ -105,12 +105,12 @@ begin
     if GetQueryParam('CALENDAR') <> '' then
     begin
       divChart.Visible := True;
-      calname := GetQueryPAram('CALENDAR');
+      calname := GetQueryParam('CALENDAR');
 
       divChart.Left := ParamLeft;
       divChart.top := ParamTop;
       asm
-        GitHubCalendar(".calendar", calname, { responsive: true });
+        GitHubCalendar(".calendar", calname, { responsive: true, tooltips: true });
       end;
 
       exit;
