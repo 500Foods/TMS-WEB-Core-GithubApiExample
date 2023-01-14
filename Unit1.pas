@@ -30,7 +30,10 @@ type
     automate: Boolean;
     ParamTop: Integer;
     ParamLeft: Integer;
+    ParamWidth: Integer;
+    ParamHeight: Integer;
     ParamFS: Integer;
+    ParamCalendar: Boolean;
   end;
 
 var
@@ -109,10 +112,12 @@ begin
 
       divChart.Left := ParamLeft;
       divChart.top := ParamTop;
+      divChart.Width := ParamWidth;
+      divChart.Height := ParamHeight;
+
       asm
         GitHubCalendar(".calendar", calname, { responsive: true, tooltips: true });
       end;
-
       exit;
     end;
 
@@ -209,8 +214,8 @@ begin
 //          divMain.style.setProperty('border-radius', '6px','important');
 //          document.body.style.setProperty('background-color', bgcolor,'important');
         }
-        var width = divChart.offsetWidth - (margin * 6);
-        var height = divChart.offsetHeight - (margin * 6);
+        var width = pas.Unit1.Form1.ParamWidth - (margin * 6);
+        var height = pas.Unit1.Form1.ParamHeight - (margin * 6);
         var colors = ["#C9D6DF", "#F7EECF", "#E3E1B2", "#F9CAC8"];
         var parseDate = d3.utcParse("%Y-%m-%d");
         var formatDate = d3.timeFormat("%b-%d");           // Jan-01
@@ -467,7 +472,7 @@ begin
     });
     this.tabRepos.on("tableBuilt", function(){
       pas.Unit1.Form1.tabReposBuilt = true;
-      if (pas.Unit1.Form1.automate == true) {
+      if ((pas.Unit1.Form1.automate == true) && (pas.Unit1.Form1.ParamCalendar == false)) {
         pas.Unit1.Form1.GetGPAT();
       }
     });
@@ -484,8 +489,7 @@ begin
   ParamTop := 0;
   ParamLeft := 0;
   ParamFS := 10;
-  if ((GetQueryParam('GPAT') <> '')    and
-      (GetQueryParam('WIDTH') <> '')   and
+  if ((GetQueryParam('WIDTH') <> '')   and
       (GetQueryParam('HEIGHT') <> '')) then
   begin
     WebEdit1.Text := GetQueryParam('GPAT');
@@ -500,15 +504,36 @@ begin
     divChart.WidthStyle := ssAbsolute;
     divChart.Width := StrToInt(GetQueryParam('WIDTH'));
     divChart.Height := StrToInt(GetQueryParam('HEIGHT'));
+    ParamWidth := StrToInt(GetQueryParam('WIDTH'));
+    ParamHeight := StrToInt(GetQueryParam('HEIGHT'));
     divChart.Top := 0;
     divChart.Left := 0;
     ParamTop := StrToIntDef(GetQueryParam('Y'),0);
     ParamLeft := StrToIntDef(GetQueryParam('X'),0);
     ParamFS := StrToIntDef(GetQueryParam('FS'),10);
+
+    if GetQueryParam('CALENDAR') <> ''
+    then ParamCalendar := True;
+
+  end
+  else
+  begin
+    ParamTop := 0;
+    ParamLeft := 0;
+    ParamWidth := Form1.Width - 20;
+    ParamHeight := (Form1.Height div 2) - 20;
+    ParamCalendar := False;
   end;
 
   if automate = false
   then WebEdit1.Visible := True;
+
+  if ParamCalendar = true then
+  begin
+    tabReposBuilt := true;
+    UpdateChart();
+  end;
+
 
 end;
 
