@@ -116,7 +116,7 @@ begin
       divChart.Height := ParamHeight;
 
       asm
-        GitHubCalendar(".calendar", calname, { responsive: true, tooltips: true });
+        GitHubCalendar(".calendar", calname, { responsive: true });
       end;
       exit;
     end;
