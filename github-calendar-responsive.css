@@ -9,7 +9,9 @@
 #divChart > div.position-relative > div {
   border: none !important;
 }
-
+#divChart > div.position-relative > div > div.Box-header {
+  display: none;
+}
 .color-fg-muted {
   color: #BBBBBB;
 }
