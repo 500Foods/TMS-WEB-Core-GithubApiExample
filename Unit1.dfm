@@ -76,4 +76,10 @@ object Form1: TForm1
       Role = ''
     end
   end
+  object WebTimer1: TWebTimer
+    Interval = 1800000
+    OnTimer = WebTimer1Timer
+    Left = 104
+    Top = 40
+  end
 end

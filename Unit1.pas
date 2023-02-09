@@ -5,7 +5,7 @@ interface
 uses
   System.SysUtils, System.Classes, JS, Web, WEBLib.Graphics, WEBLib.Controls, WebLib.JSON, jsdelphisystem,
   WEBLib.Forms, WEBLib.Dialogs, Vcl.Controls, WEBLib.WebCtrls, WEBLib.WebTools,
-  Vcl.StdCtrls, WEBLib.StdCtrls, WEBLib.REST;
+  Vcl.StdCtrls, WEBLib.StdCtrls, WEBLib.REST, WEBLib.ExtCtrls;
 
 type
   TForm1 = class(TWebForm)
@@ -13,6 +13,7 @@ type
     WebEdit1: TWebEdit;
     divTabulator: TWebHTMLDiv;
     divChart: TWebHTMLDiv;
+    WebTimer1: TWebTimer;
     procedure WebEdit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     [async] procedure GetGPAT;
     procedure WebFormShow(Sender: TObject);
@@ -20,6 +21,7 @@ type
     [async] procedure UpdateChart;
     [async] function GetTrafficData(repo: String): JSValue;
     procedure WebFormResize(Sender: TObject);
+    procedure WebTimer1Timer(Sender: TObject);
   private
     { Private declarations }
   public
@@ -223,7 +225,7 @@ begin
         var ParamY = pas.Unit1.Form1.ParamTop;
 
         // Replace chart whenever we're here    
-        divChart.innerHTML = '';
+        divChart.replaceChildren();
 
         // Chart is an SVG image created in the divChart TWebHTMLDiv component
         // Here we're positioning it with a bit of margin
@@ -545,6 +547,11 @@ end;
 procedure TForm1.WebFormShow(Sender: TObject);
 begin
   WebEdit1.SetFocus;
+end;
+
+procedure TForm1.WebTimer1Timer(Sender: TObject);
+begin
+  UpdateChart();
 end;
 
 end.
