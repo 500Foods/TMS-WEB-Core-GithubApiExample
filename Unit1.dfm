@@ -74,7 +74,7 @@ object Form1: TForm1
     end
   end
   object WebTimer1: TWebTimer
-    Interval = 1800000
+    Interval = 600000
     OnTimer = WebTimer1Timer
     Left = 104
     Top = 40

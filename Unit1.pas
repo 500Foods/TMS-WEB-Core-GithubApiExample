@@ -17,7 +17,7 @@ type
     procedure WebFormShow(Sender: TObject);
     [async] procedure WebFormCreate(Sender: TObject);
     procedure WebFormResize(Sender: TObject);
-    procedure WebTimer1Timer(Sender: TObject);
+    [async] procedure WebTimer1Timer(Sender: TObject);
     [async] procedure UpdateTable;
     [async] procedure WebEdit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     [async] procedure RefreshTableData;
@@ -717,7 +717,7 @@ end;
 
 procedure TForm1.WebFormResize(Sender: TObject);
 begin
-//  UpdateChart();
+  UpdateChart();
 end;
 
 procedure TForm1.WebFormShow(Sender: TObject);
@@ -727,7 +727,16 @@ end;
 
 procedure TForm1.WebTimer1Timer(Sender: TObject);
 begin
-//  UpdateChart();
+  if Param_Mode = 'Calendar' then
+  begin
+    UpdateCalendar;
+  end
+  else if Param_Mode = 'Chart' then
+  begin
+    await(RefreshTableData);
+    await(UpdateTable);
+    UpdateChart;
+  end;
 end;
 
 end.
