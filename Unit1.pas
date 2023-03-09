@@ -96,7 +96,7 @@ begin
     WebRequest := TWebHTTPRequest.Create(Self);
     WebRequest.URL := 'https://api.github.com/repos/'+repo+'/traffic/views';
     WebRequest.Headers.AddPair('Accept','application/vnd.github+json');
-    WebRequest.Headers.AddPair('Authorization','Bearer '+Form1.GitHubToken);
+    WebRequest.Headers.AddPair('Authorization','Bearer '+GitHubToken);
     WebResponse := await(TJSXMLHTTPRequest, WebRequest.Perform());
 
     Data := String(WebResponse.Response);
@@ -149,6 +149,11 @@ begin
   divChart.Height := Param_Height;
 
   asm
+      async function sleep(msecs) {
+        return new Promise((resolve) =>setTimeout(resolve, msecs));
+      }
+      await sleep(100);
+
     document.body.style.setProperty('background', this.Param_Background);
     GitHubCalendar(".calendar", this.Param_Calendar, { responsive: true });
   end;
@@ -511,8 +516,6 @@ begin
   end;
 end;
 
-//https://www.500foods.com/githubapi/Project1.html?GPAT=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&WIDTH=450&HEIGHT=600&BG=%231C1C1C&X00&Y=5&FS=8
-
 procedure TForm1.RefreshTableData;
 var
   WebRequest: TWebHTTPRequest;
@@ -717,7 +720,7 @@ end;
 
 procedure TForm1.WebFormResize(Sender: TObject);
 begin
-  UpdateChart();
+//  UpdateChart();
 end;
 
 procedure TForm1.WebFormShow(Sender: TObject);
