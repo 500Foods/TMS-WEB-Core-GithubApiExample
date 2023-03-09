@@ -5,7 +5,7 @@ interface
 uses
   System.SysUtils, System.Classes, JS, Web, WEBLib.Graphics, WEBLib.Controls, WebLib.JSON, jsdelphisystem,
   WEBLib.Forms, WEBLib.Dialogs, Vcl.Controls, WEBLib.WebCtrls, WEBLib.WebTools,
-  Vcl.StdCtrls, WEBLib.StdCtrls, WEBLib.REST, WEBLib.ExtCtrls;
+  Vcl.StdCtrls, WEBLib.StdCtrls, WEBLib.REST, WEBLib.ExtCtrls, WEBLib.Storage, System.DateUtils;
 
 type
   TForm1 = class(TWebForm)
@@ -14,28 +14,43 @@ type
     divTabulator: TWebHTMLDiv;
     divChart: TWebHTMLDiv;
     WebTimer1: TWebTimer;
-    procedure WebEdit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
-    [async] procedure GetGPAT;
     procedure WebFormShow(Sender: TObject);
-    procedure WebFormCreate(Sender: TObject);
-    [async] procedure UpdateChart;
-    [async] function GetTrafficData(repo: String): JSValue;
+    [async] procedure WebFormCreate(Sender: TObject);
     procedure WebFormResize(Sender: TObject);
     procedure WebTimer1Timer(Sender: TObject);
+    [async] procedure UpdateTable;
+    [async] procedure WebEdit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
+    [async] procedure RefreshTableData;
+    [async] procedure UpdateChart;
+    [async] procedure UpdateCalendar;
+    [async] function GetTrafficData(repo: String): JSValue;
   private
     { Private declarations }
   public
     { Public declarations }
+
     tabRepos: JSValue;
     tabReposBuilt: Boolean;
+
+    Table_Data: String;
+    Table_Data_Age: TDateTime;
+
     GitHubToken: String;
+
     automate: Boolean;
-    ParamTop: Integer;
-    ParamLeft: Integer;
-    ParamWidth: Integer;
-    ParamHeight: Integer;
-    ParamFS: Integer;
-    ParamCalendar: Boolean;
+
+    Param_Mode: String;
+    Param_GitHubToken: String;
+    Param_Calendar: String;
+
+    Param_Top: Integer;
+    Param_Left: Integer;
+    Param_Width: Integer;
+    Param_Height: Integer;
+
+    Param_FontSize: Integer;
+    Param_Background: String;
+
   end;
 
 var
@@ -51,150 +66,225 @@ var
   WebResponse: TJSXMLHTTPRequest;
   Data: String;
   JSONData: TJSONObject;
+  RepoAge: TDateTime;
+  RequestData: Boolean;
 
 begin
-  WebRequest := TWebHTTPRequest.Create(Self);
-  WebRequest.URL := 'https://api.github.com/repos/'+repo+'/traffic/views';
-  WebRequest.Headers.AddPair('Accept','application/vnd.github+json');
-  WebRequest.Headers.AddPair('Authorization','Bearer '+Form1.GitHubToken);
-  WebResponse := await(TJSXMLHTTPRequest, WebRequest.Perform());
-  Data := String(WebResponse.Response);
-  try
-    JSONData := TJSONObject.ParseJSONValue(Data) as TJSONObject;
-    asm
-      // this is the original JSON
-      var traffic = JSON.parse(Data);
 
-      // Want to convert it into something we can display in a chart
-      var convert = {};
+  // Assume we'll be asking for data
+  RequestData := True;
 
-      // [{<date> <title> <count>}]
-      traffic.views.forEach(function(trafficdate){
-        convert[trafficdate.timestamp.substr(0,10)] = trafficdate.uniques;
-      });
-
-      Result = JSON.stringify(convert);
-    end;
-  except on E: Exception do
+  // If we already have data for this cached for this repo, then use it
+  if (TWebLocalStorage.getValue('GAE.Repo.Data.'+Repo) <> '') then
+  begin
+    if (TWebLocalStorage.getValue('GAE.Repo.DataAge.'+Repo) <> '') then
     begin
-      asm
-        Result = '{}'
+      RepoAge := StrToFloat(TwebLocalStorage.GetValue('GAE.Repo.DataAge.'+Repo));
+      if MinutesBetween(Now, RepoAge) < 60 then
+      begin
+        RequestData := False;
+        Result := TWebLocalStorage.getValue('GAE.Repo.Data.'+Repo);
+        console.log('Retrieving ['+Repo+'] Data from Cache');
       end;
     end;
   end;
+
+  // Otherwise, go and get it
+  if RequestData then
+  begin
+    console.log('Retrieving ['+Repo+'] Data from GitHub');
+    WebRequest := TWebHTTPRequest.Create(Self);
+    WebRequest.URL := 'https://api.github.com/repos/'+repo+'/traffic/views';
+    WebRequest.Headers.AddPair('Accept','application/vnd.github+json');
+    WebRequest.Headers.AddPair('Authorization','Bearer '+Form1.GitHubToken);
+    WebResponse := await(TJSXMLHTTPRequest, WebRequest.Perform());
+
+    Data := String(WebResponse.Response);
+    try
+      JSONData := TJSONObject.ParseJSONValue(Data) as TJSONObject;
+      asm
+        // this is the original JSON
+        var traffic = JSON.parse(Data);
+
+        // Want to convert it into something we can display in a chart
+        var convert = {};
+
+        // [{<date> <title> <count>}]
+        traffic.views.forEach(function(trafficdate){
+          convert[trafficdate.timestamp.substr(0,10)] = trafficdate.uniques;
+        });
+
+        Data = JSON.stringify(convert);
+      end;
+    except on E: Exception do
+      begin
+        asm
+          Data = '{}'
+        end;
+      end;
+    end;
+
+    if Data = '{}' then
+    begin
+      TWebLocalStorage.RemoveKey('GAE.Repo.Data.'+Repo);
+      TWebLocalStorage.RemoveKey('GAE.Repo.DataAge.'+Repo);
+    end
+    else
+    begin
+      TWebLocalStorage.SetValue('GAE.Repo.Data.'+Repo, Data);
+      TWebLocalStorage.SetValue('GAE.Repo.DataAge.'+Repo, FloatToStr(Now));
+    end;
+
+    Result := Data;
+  end;
+end;
+
+procedure TForm1.UpdateCalendar;
+begin
+
+  // Set Calendar size and position
+  divChart.Top := Param_Top;
+  divChart.Left := Param_Left;
+  divChart.Width := Param_Width;
+  divChart.Height := Param_Height;
+
+  asm
+    document.body.style.setProperty('background', this.Param_Background);
+    GitHubCalendar(".calendar", this.Param_Calendar, { responsive: true });
+  end;
+
+  divChart.Visible := True;
 end;
 
 procedure TForm1.UpdateChart;
 var
   NumRepos: Integer;
-  calname: String;
-  bg: string;
 begin
-  if (tabReposBuilt) then
+
+  while not(tabReposBuilt) do
   begin
-
-    NumRepos := 0;
-
-
-    bg := GetQueryParam('BG');
-    if bg = ''
-    then bg := '#212529';
     asm
-      document.body.style.setProperty('background',bg);
-//      divMain.style.setProperty('background-color',bg);
-//      divTabulator.style.setProperty('background-color',bg);
-//      divChart.style.setProperty('background-color',bg);
+      async function sleep(msecs) {
+        return new Promise((resolve) =>setTimeout(resolve, msecs));
+      }
+      await sleep(100);
     end;
+  end;
 
+  console.log('drawing chart');
 
-    if GetQueryParam('CALENDAR') <> '' then
-    begin
-      divChart.Visible := True;
-      calname := GetQueryParam('CALENDAR');
+  NumRepos := 0;
 
-      divChart.Left := ParamLeft;
-      divChart.top := ParamTop;
-      divChart.Width := ParamWidth;
-      divChart.Height := ParamHeight;
+  divChart.Top := Param_Top;
+  divChart.Left := Param_Left;
+  divChart.Width := Param_Width;
+  divChart.Height := Param_Height;
 
-      asm
-        GitHubCalendar(".calendar", calname, { responsive: true });
-      end;
-      exit;
-    end;
+  asm
+    document.body.style.setProperty('background', this.Param_Background);
 
-    asm
-      var allrepodata = {};
-      var repodata = {};
-      var repolist = [];
-      var repo = '';
-      var title = '';
+    var allrepodata = {};
+    var repodata = {};
+    var repolist = [];
+    var repo = '';
+    var title = '';
 
-      // Figure out if any repositories are currently selected
-      var table = pas.Unit1.Form1.tabRepos;
-      var rows = table.getSelectedRows();
+    // Figure out if any repositories are currently selected
+    var table = pas.Unit1.Form1.tabRepos;
+    var rows = table.getSelectedRows();
 
-      NumRepos = rows.length;
+    NumRepos = rows.length;
 
-      // If there are, we can draw a chart
+    // If there are, we can draw a chart
+    if (NumRepos > 0) {
 
-      if (NumRepos > 0) {
+      divChart.classList.remove('d-none');
+      divTabulator.classList.replace('h-100','h-50');
 
-        divChart.classList.remove('d-none');
-        if (pas.Unit1.Form1.automate == true) {
-          divTabulator.classList.replace('h-100','d-none');
-        }
-        else {
-          divTabulator.classList.replace('h-100','h-50');
-        }
+//      if (pas.Unit1.Form1.automate == true) {
+//        divTabulator.classList.replace('h-100','d-none');
 
-        // Get data from all of the repositories
+      // Get data from all of the repositories
 
-        for (var i = 0; i < NumRepos; i++) {
-          repo = rows[i].getCell('full_name').getValue();
-          title = rows[i].getCell('name').getValue();
+      for (var i = 0; i < NumRepos; i++) {
+        repo = rows[i].getCell('full_name').getValue();
+        title = rows[i].getCell('name').getValue();
 
-          repodata = JSON.parse(await pas.Unit1.Form1.GetTrafficData(repo));
+        repodata = JSON.parse(await pas.Unit1.Form1.GetTrafficData(repo));
 
-          for (var trafficdate in repodata) {
-            allrepodata[trafficdate] = { ...allrepodata[trafficdate], ...{[title]:repodata[trafficdate]} }
-          };
-
-          repolist[i] = title;
-        }
-
-
-        // Now have to reorganize the data for charting, basically populating every combination and
-        // ensuring zero values are present where needed.
-
-
-        // This is the array of dates we're going to use (past 14 days)
-
-        var getDaysArray = function(dtstart, dtend) {
-          for(var arr=[],dt=new Date(dtstart); dt<=new Date(dtend); dt.setDate(dt.getDate()+1)){
-            arr.push(new Date(dt).toISOString().split('T')[0]);
-          }
-          return arr;
+        for (var trafficdate in repodata) {
+          allrepodata[trafficdate] = { ...allrepodata[trafficdate], ...{[title]:repodata[trafficdate]} }
         };
-        var trafficdates = getDaysArray(new Date() - (15 * 24 * 60 * 60 * 1000), new Date() - (-1 * 24 * 60 * 60 * 1000));
+
+        repolist[i] = title;
+      }
 
 
-        // Recreate the data.  Has the benefit of also sorting it
-        // [{date: date, repo1: visitors, repo2: visitors, repo3: visitors}]
+      // Now have to reorganize the data for charting, basically populating every combination and
+      // ensuring zero values are present where needed.
 
-        var ChartData = [];
-        for (var i = 0; i < trafficdates.length; i++) {
-          var values = {};
-          for (var j = 0; j < repolist.length; j++) {
-            var visitors = 0;
-            if (allrepodata[trafficdates[i]] !== undefined) {
-              visitors = allrepodata[trafficdates[i]][repolist[j]] || 0;
-            }
-            values = {...values, ...{date:trafficdates[i],[repolist[j]]:visitors} }
-          }
-          ChartData[i] = values;
+
+      // This is the array of dates we're going to use (past 14 days)
+
+      var getDaysArray = function(dtstart, dtend) {
+        for(var arr=[],dt=new Date(dtstart); dt<=new Date(dtend); dt.setDate(dt.getDate()+1)){
+          arr.push(new Date(dt).toISOString().split('T')[0]);
         }
+        return arr;
+      };
+      var trafficdates = getDaysArray(new Date() - (15 * 24 * 60 * 60 * 1000), new Date() - (-1 * 24 * 60 * 60 * 1000));
 
+
+      // Recreate the data.  Has the benefit of also sorting it
+      // [{date: date, repo1: visitors, repo2: visitors, repo3: visitors}]
+
+      var ChartData = [];
+      for (var i = 0; i < trafficdates.length; i++) {
+        var values = {};
+        for (var j = 0; j < repolist.length; j++) {
+          var visitors = 0;
+          if (allrepodata[trafficdates[i]] !== undefined) {
+            visitors = allrepodata[trafficdates[i]][repolist[j]] || 0;
+          }
+          values = {...values, ...{date:trafficdates[i],[repolist[j]]:visitors} }
+        }
+        ChartData[i] = values;
+      }
+
+      // More data cleaning.  Remove days without data at start
+      for (var i = 0; i < ChartData.length; i++) {
+        var empty = true;
+        Object.keys(ChartData[i]).forEach(function(key) {
+          if ((key !== 'date') && (parseInt(ChartData[i][key]) !== 0)) {
+            empty = false;
+          }
+        });
+        if ((empty == true) && (i == 0)) {
+          console.log('Removing empty starting date: '+ChartData[i].date);
+          ChartData.splice(i,1);
+          i = i - 1;
+        }
+      }
+      // More data cleaning.  Remove days without data at end
+      for (var i = ChartData.length - 1; i >= 0; i--) {
+        var empty = true;
+        Object.keys(ChartData[i]).forEach(function(key) {
+          if ((key !== 'date') && (parseInt(ChartData[i][key]) !== 0)) {
+            empty = false;
+          }
+        });
+        if ((empty == true) && (i == ChartData.length - 1)) {
+          console.log('Removing empty ending date: '+ChartData[i].date);
+          ChartData.splice(i,1);
+          i = i - 1;
+        }
+      }
+
+//      for (var i = 0; i < ChartData.length; i++) {
+//        var list = ChartData[i];
+//        var keysSorted = Object.keys(list).sort(function(a,b){return list[a]-list[b]})
+//        console.log(keysSorted);
+//      }
 
 //        console.log(trafficdates);
 //        console.log(allrepodata);
@@ -202,27 +292,28 @@ begin
 //        console.log(repolist);
 
 
-        // Let's make a D3 Stacked Bar Chart!  This is modified from the following links.
-        // One of the main changes is to update the code from D3 v3 to D3 v4
-        // https://www.educative.io/answers/how-to-create-stacked-bar-chart-using-d3
-        // https://observablehq.com/@stuartathompson/a-step-by-step-guide-to-the-d3-v4-stacked-bar-chart
+
+      // Let's make a D3 Stacked Bar Chart!  This is modified from the following links.
+      // One of the main changes is to update the code from D3 v3 to D3 v4
+      // https://www.educative.io/answers/how-to-create-stacked-bar-chart-using-d3
+      // https://observablehq.com/@stuartathompson/a-step-by-step-guide-to-the-d3-v4-stacked-bar-chart
 
         var margin = 8;
-        if (pas.Unit1.Form1.automate) {
-          margin = 2;
-//          divChart.style.setProperty('background-color', bgcolor,'important');
-//          divMain.style.setProperty('background-color', bgcolor,'important');
-//          divChart.style.setProperty('border-radius', '6px','important');
-//          divMain.style.setProperty('border-radius', '6px','important');
-//          document.body.style.setProperty('background-color', bgcolor,'important');
-        }
-        var width = pas.Unit1.Form1.ParamWidth - (margin * 6);
-        var height = pas.Unit1.Form1.ParamHeight - (margin * 6);
+//        if (pas.Unit1.Form1.automate) {
+//          margin = 2;
+////          divChart.style.setProperty('background-color', bgcolor,'important');
+////          divMain.style.setProperty('background-color', bgcolor,'important');
+////          divChart.style.setProperty('border-radius', '6px','important');
+////          divMain.style.setProperty('border-radius', '6px','important');
+////          document.body.style.setProperty('background-color', bgcolor,'important');
+//        }
+        var width = pas.Unit1.Form1.Param_Width - (margin * 6);
+        var height = pas.Unit1.Form1.Param_Height - (margin * 6);
         var colors = ["#C9D6DF", "#F7EECF", "#E3E1B2", "#F9CAC8"];
         var parseDate = d3.utcParse("%Y-%m-%d");
         var formatDate = d3.timeFormat("%b-%d");           // Jan-01
-        var ParamX = pas.Unit1.Form1.ParamLeft;
-        var ParamY = pas.Unit1.Form1.ParamTop;
+        var ParamX = pas.Unit1.Form1.Param_Left;
+        var ParamY = pas.Unit1.Form1.Param_Top;
 
         // Replace chart whenever we're here    
         divChart.replaceChildren();
@@ -231,13 +322,16 @@ begin
         // Here we're positioning it with a bit of margin
         var svg = d3.select("#divChart")
                     .append("svg")
-                    .attr("width", width + (margin * 6) + ParamX)
-                    .attr("height", height + (margin * 6) + ParamY)
+                    .attr("width", '100%')
+                    .attr("height", '100%')
+
+//                    .attr("width", width + (margin * 6) + ParamX)
+//                    .attr("height", height + (margin * 8) + ParamY)
 //                    .attr("transform", "translate("+margin+","+margin+")")
                     .append("g")
-                    .attr("width", width - (margin * 8))
-                    .attr("height", height - (margin * 8))
-                    .attr("transform", "translate("+((margin * 2) + ParamX) +","+((margin * 2)+ParamY)+")");
+                    .attr("width", '100%')
+                    .attr("height", '100%')
+                    .attr("transform", "translate(12,24)");
 
 
         // This is the insanity needed to create the stacked portion of the bar chart
@@ -264,32 +358,32 @@ begin
 
 
         // Deal with the X-Axis
-        var x = d3.scaleLinear().domain([0,ChartData.length-1]).range([margin*5,width]);
+        var x = d3.scaleLinear().domain([0,ChartData.length-0.5]).range([margin*5,width]);
         var xAxis = d3.axisBottom(x)
-                      .ticks(16)
+                      .ticks(ChartData.length)
                       .tickFormat((d, i) => formatDate(parseDate(trafficdates[d])));
 
-        if (pas.Unit1.Form1.automate == false) {
-          svg.append('text')
-             .attr('x', width/2)
-             .attr('y', height + 30)
-             .attr('text-anchor', 'middle')
-             .text('UTC Date')
-             .style('font-size', '12px');
-        }
+
+//        svg.append('text')
+//           .attr('x', width/2)
+//           .attr('y', height + 30)
+//           .attr('text-anchor', 'middle')
+//           .text('UTC Date')
+//           .style('font-size', '12px');
+
 
 
         // Deal with the Y-Axis
-        var y = d3.scaleLinear().domain([0, yMax]).range([height - ParamY,0])
+        var y = d3.scaleLinear().domain([0, yMax]).range([height - ParamY, 0])
         var yAxis = d3.axisLeft(y);
 
-        if (pas.Unit1.Form1.automate == false) {
-          svg.append('text')
-             .attr('text-anchor', 'middle')
-             .attr('transform', 'translate(-8,'+ height/2 + ')rotate(-90)')
-             .text('Unique Visitors')
-             .style('font-size', '12px');
-        }
+//        if (pas.Unit1.Form1.automate == false) {
+//          svg.append('text')
+//             .attr('text-anchor', 'middle')
+//             .attr('transform', 'translate(-8,'+ height/2 + ')rotate(-90)')
+//             .text('Unique Visitors')
+//             .style('font-size', '12px');
+//        }
 
 
         // Draw the bar charts
@@ -313,12 +407,12 @@ begin
                .attr('stroke-width', 1)
                .append("title")
                .text(function(d,i) {
-                 return d.key
+                 return d.key+' - '+d.data[d.key]
                });
              d3.select(this)
                .append("text")
                .attr('x', (d,i) => x(j))
-               .attr('y', d => y(d[1])+(y(d[0])-y(d[1]))/2+(parseInt(pas.Unit1.Form1.ParamFS) / 3))
+               .attr('y', d => y(d[1])+(y(d[0])-y(d[1]))/2+(parseInt(pas.Unit1.Form1.Param_FontSize) / 3))
                .attr('width', (width/ChartData.length))
                .attr('height', d => {
                  return y(d[0])-y(d[1])
@@ -326,10 +420,11 @@ begin
                .attr("text-anchor", "middle")
                .attr("dominant-baseliner", "middle")
                .attr("pointer-events", "none")
-               .style("font-size", parseInt(pas.Unit1.Form1.ParamFS)+"px")
+               .style("font-size", parseInt(pas.Unit1.Form1.Param_FontSize)+"px")
                .attr("fill", "white")
                .text( d => {
-                 if (( y(d[0])-y(d[1]) ) == 0) {
+                 // Too small to fit?
+                 if (( y(d[0])-y(d[1]) ) <= pas.Unit1.Form1.Param_FontSize) {
                   return ''
                  }
                  else {
@@ -339,15 +434,15 @@ begin
              });
 
 
-        if (pas.Unit1.Form1.automate == false) {
-          svg.append('g')
-            .attr("transform", "translate("+margin * 5+",0)")
-            .call(yAxis);
-
-          svg.append('g')
-            .attr("transform", "translate(0,"+(height)+")")
-            .call(xAxis);
-        }
+//        if (pas.Unit1.Form1.automate == false) {
+//          svg.append('g')
+//            .attr("transform", "translate("+margin * 5+",0)")
+//            .call(yAxis);
+//
+//          svg.append('g')
+//            .attr("transform", "translate(0,"+(height)+")")
+//            .call(xAxis);
+//        }
 
         svg.selectAll("line").style("stroke", "#6c757d");  // Bootsrap secondary color
         svg.selectAll("path").style("stroke", "#6c757d");
@@ -355,84 +450,135 @@ begin
         svg.selectAll("text").style("stroke", "white");
         svg.selectAll("text").style("fill", "white");
         svg.selectAll("text").style("stroke-width", "0.2");
-//        svg.selectAll("text").style("font-size", "10px");
+     }
+  end;
+
+  divChart.Visible := True;
+
+  if (NumRepos = 0) then
+  begin
+    divChart.ElementHandle.classList.add('d-none');
+    divTabulator.ElementHandle.classList.replace('h-50','h-100');
+  end
+end;
+
+procedure TForm1.UpdateTable;
+begin
+  while not(tabReposBuilt) or (Table_Data = '') do
+  begin
+    if table_data = '' then console.log('waiting for table');
+    if not(tabReposBuilt) then console.log('waiting for table');
+
+    asm
+      async function sleep(msecs) {
+        return new Promise((resolve) =>setTimeout(resolve, msecs));
       }
-
+      await sleep(100);
     end;
+  end;
 
-    divChart.Visible := True;
-    if (NumRepos = 0) then
-    begin
-      divChart.ElementHandle.classList.add('d-none');
-      divTabulator.ElementHandle.classList.replace('h-50','h-100');
-    end
+
+  asm
+    this.tabRepos.setData(JSON.parse(this.Table_Data));
+    this.tabRepos.selectRow();
   end;
 end;
 
 procedure TForm1.WebEdit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
-
   if (Key = VK_RETURN) then
   begin
-    Form1.GitHubToken := Form1.WebEdit1.Text;
-    GetGPAT;
+
+    // This is the token we'll need to use to authenticate with GitHub
+    GitHubToken := WebEdit1.Text;
+
+    // Save the token so we don't have to enter it each time
+    TWebLocalStorage.SetValue('GAE.G', GitHubtoken);
+
+    // Get table data - either from cache or from GitHub
+    await(RefreshTableData);
+
+    // If we've got table data, then show it
+    if Table_Data <> '' then
+    begin
+      UpdateTable;
+      WebEdit1.Visible := False;
+      Form1.divTabulator.ElementHandle.classList.remove('d-none');
+
+      UpdateChart;
+    end;
+
   end;
 end;
 
-procedure TForm1.GetGPAT;
+//https://www.500foods.com/githubapi/Project1.html?GPAT=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&WIDTH=450&HEIGHT=600&BG=%231C1C1C&X00&Y=5&FS=8
+
+procedure TForm1.RefreshTableData;
 var
   WebRequest: TWebHTTPRequest;
   WebResponse: TJSXMLHTTPRequest;
-  Data: String;
-  JSONData: TJSONArray;
-
+  RequestData: Boolean;
 begin
 
-  if Length(Form1.GitHubToken) < 50 then
+  // If the token doesn't pass muster then ask again
+  if Length(GitHubToken) < 50 then
   begin
-    Form1.WebEdit1.Text := '';
-    Form1.WebEdit1.TextHint := 'Token is too short. Please try again.';
-  end
-  else
+    WebEdit1.Text := '';
+    WebEdit1.TextHint := 'Token is too short. Please try again.';
+    Table_Data := '';
+    exit;
+  end;
+
+  // Assume we're going to need to go and get data
+  RequestData := True;
+
+  // Get data from localStorage if it is avaialble
+  if TWebLocalStorage.GetValue('GAE.TableData') <> '' then
   begin
-    Form1.WebEdit1.Text := '';
-    Form1.WebEdit1.TextHint := 'Retrieving Repositories. Please Wait.';
+    if TWEbLocalStorage.GetValue('GAE.TableDataAge') <> '' then
+    begin
+      Table_Data_Age := StrToFloat(TWebLocalStorage.GetValue('GAE.TableDataAge'));
+      if MinutesBetween(Now, Table_Data_Age) < 60  then
+      begin
+        console.log('Retrieving Table Data from Cache');
+        Table_Data := TWebLocalStorage.GetValue('GAE.TableData');
+        RequestData := False;
+      end;
+    end;
+  end;
+
+
+  if RequestData then
+  begin
+    console.log('Retrieving Table Data From GitHub');
+    WebEdit1.Text := '';
+    WebEdit1.TextHint := 'Retrieving Repositories. Please Wait.';
 
     WebRequest := TWebHTTPRequest.Create(Self);
     WebRequest.URL := 'https://api.github.com/user/repos';
     WebRequest.Headers.AddPair('Accept','application/vnd.github+json');
     WebRequest.Headers.AddPair('Authorization','Bearer '+Form1.GitHubToken);
     WebResponse := await(TJSXMLHTTPRequest, WebRequest.Perform());
-    Data := String(WebResponse.Response);
+    Table_Data := String(WebResponse.Response);
 
     try
-      JSONData := TJSONObject.ParseJSONValue(Data) as TJSONArray;
-      asm
-//          console.log(JSON.parse(Data));
-        this.tabRepos.setData(JSON.parse(Data));
-        this.tabRepos.selectRow();
-      end;
-      Form1.WebEdit1.Visible := False;
-      if not(automate)
-      then Form1.divTabulator.ElementHandle.classList.remove('d-none');
-      Form1.UpdateChart;
+      TWebLocalStorage.SetValue('GAE.TableData',Table_Data);
+      TWebLocalStorage.SetValue('GAE.TableDataAge',FloatToStr(Now));
     except on E: Exception do
       begin
-        Form1.WebEdit1.Text := '';
-        Form1.WebEdit1.TextHint := 'Retrieval Failed. Please try again.';
+        WebEdit1.Text := '';
+        WebEdit1.TextHint := 'Retrieval Failed. Please try again.';
       end;
     end;
   end;
 end;
 
 procedure TForm1.WebFormCreate(Sender: TObject);
-var
-  bg: String;
 begin
+
+
   tabReposBuilt := False;
-
   asm
-
     var headerMenu = [
       {
         label:"Select All",
@@ -449,7 +595,6 @@ begin
         }
       }
     ]
-
     this.tabRepos = new Tabulator("#divTabulator", {
       layout: "fitColumns",
       selectable: true,
@@ -474,9 +619,9 @@ begin
     });
     this.tabRepos.on("tableBuilt", function(){
       pas.Unit1.Form1.tabReposBuilt = true;
-      if ((pas.Unit1.Form1.automate == true) && (pas.Unit1.Form1.ParamCalendar == false)) {
-        pas.Unit1.Form1.GetGPAT();
-      }
+//      if ((pas.Unit1.Form1.automate == true) && (pas.Unit1.Form1.ParamCalendar == false)) {
+//        pas.Unit1.Form1.RefreshTableData();
+//      }
     });
     this.tabRepos.on("rowSelectionChanged", function(data, rows){
       //rows - array of row components for the selected rows in order of selection
@@ -486,54 +631,85 @@ begin
   end;
 
 
-  // Automatic?
-  automate := false;
-  ParamTop := 0;
-  ParamLeft := 0;
-  ParamFS := 10;
-  if ((GetQueryParam('WIDTH') <> '')   and
-      (GetQueryParam('HEIGHT') <> '')) then
+  // Parameters
+
+  Param_Mode := 'UI';
+  Param_GitHubToken := '';
+  Param_Calendar := '';
+
+  Param_Top := 0;
+  Param_Left := 0;
+  Param_Width := Form1.Width;
+  Param_Height := (Form1.Height div 2);
+
+  Param_FontSize := 10;
+  Param_Background := '#212529';
+
+
+  // See if they're already in localStorage
+
+  Param_Mode := TWebLocalStorage.GetValue('GAE.M');
+  Param_GitHubToken := TWebLocalStorage.GetValue('GAE.G');
+  Param_Calendar := TWebLocalStorage.GetValue('GAE.C');
+
+  Param_Top := StrToIntDef(TWebLocalStorage.GetValue('GAE.T'), Param_Top);
+  Param_Left := StrToIntDef(TWebLocalStorage.GetValue('GAE.L'), Param_Left);
+  Param_Width := StrToIntDef(TWebLocalStorage.GetValue('GAE.W'), Param_Width);
+  Param_Height := StrToIntDef(TWebLocalStorage.GetValue('GAE.H'), Param_Height);
+
+  Param_FontSize := StrToIntDef(TWebLocalStorage.GetValue('GAE.F'), Param_FontSize);
+  Param_Background := TWebLocalStorage.GetValue('GAE.B');
+
+
+  // Load up any that are passed as URL parameters
+  if GetQueryParam('M') <> '' then Param_Mode := GetQueryParam('M');
+  if GetQueryParam('G') <> '' then Param_GitHubToken := GetQueryParam('G');
+  if GetQueryParam('C') <> '' then Param_Calendar := GetQueryParam('C');
+
+  if GetQueryParam('T') <> '' then Param_Top := StrToIntDef(GetQueryParam('T'), Param_Top);
+  if GetQueryParam('L') <> '' then Param_Left := StrToIntDef(GetQueryParam('L'), Param_Left);
+  if GetQueryParam('W') <> '' then Param_Width := StrToIntDef(GetQueryParam('W'), Param_Width);
+  if GetQueryParam('H') <> '' then Param_Height := StrToIntDef(GetQueryParam('H'), Param_Height);
+
+  if GetQueryParam('F') <> '' then   Param_FontSize := StrToIntDef(GetQueryParam('F'), Param_FontSize);
+  if GetQueryParam('B') <> '' then   Param_Background := GetQueryParam('B');
+
+
+  // Use token if we've got one
+  WebEdit1.Text := Param_GitHubToken;
+  GitHubToken := Param_GitHubToken;
+
+
+  // How our page is configured normally
+  Form1.ElementClassName := 'vw-100 vh-100 d-flex p-2 bg-black';
+  divMain.ElementClassName := 'd-flex flex-fill rounded border border-secondary border-2 p-2 flex-column overflow-hidden gap-1';
+  divTabulator.ElementClassName := 'flex-fill d-none h-100 order-0';
+  divChart.ElementClassName := 'position-relative overflow-hidden d-none flex-fill h-50 w-100 order-1';
+
+  if Param_Mode = 'Calendar' then
   begin
-    WebEdit1.Text := GetQueryParam('GPAT');
-    GitHubToken := WebEdit1.Text;
-    automate := true;
+    WebEdit1.Visible := False;
     divTabulator.Visible := False;
-    divMain.ElementClassName := '';
     Form1.ElementClassName := '';
+    divMain.ElementClassName := '';
     divChart.ElementClassName := 'overflow-hidden order-1 calendar';
-    divChart.ElementPosition := epAbsolute;
-    divChart.HeightStyle := ssAbsolute;
-    divChart.WidthStyle := ssAbsolute;
-    divChart.Width := StrToInt(GetQueryParam('WIDTH'));
-    divChart.Height := StrToInt(GetQueryParam('HEIGHT'));
-    ParamWidth := StrToInt(GetQueryParam('WIDTH'));
-    ParamHeight := StrToInt(GetQueryParam('HEIGHT'));
-    divChart.Top := 0;
-    divChart.Left := 0;
-    ParamTop := StrToIntDef(GetQueryParam('Y'),0);
-    ParamLeft := StrToIntDef(GetQueryParam('X'),0);
-    ParamFS := StrToIntDef(GetQueryParam('FS'),10);
-
-    if GetQueryParam('CALENDAR') <> ''
-    then ParamCalendar := True;
-
+    UpdateCalendar;
+  end
+  else if Param_Mode = 'Chart' then
+  begin
+    WebEdit1.Visible := False;
+    divTabulator.Visible := False;
+    Form1.ElementClassName := '';
+    divMain.ElementClassName := '';
+    divChart.ElementClassName := 'overflow-hidden order-1';
+    await(RefreshTableData);
+    await(UpdateTable);
+    UpdateChart;
   end
   else
   begin
-    ParamTop := 0;
-    ParamLeft := 0;
-    ParamWidth := Form1.Width - 20;
-    ParamHeight := (Form1.Height div 2) - 20;
-    ParamCalendar := False;
-  end;
-
-  if automate = false
-  then WebEdit1.Visible := True;
-
-  if ParamCalendar = true then
-  begin
-    tabReposBuilt := true;
-    UpdateChart();
+    WebEdit1.Visible := True;
+    divTabulator.Visible := False;
   end;
 
 
@@ -541,7 +717,7 @@ end;
 
 procedure TForm1.WebFormResize(Sender: TObject);
 begin
-  UpdateChart();
+//  UpdateChart();
 end;
 
 procedure TForm1.WebFormShow(Sender: TObject);
@@ -551,7 +727,7 @@ end;
 
 procedure TForm1.WebTimer1Timer(Sender: TObject);
 begin
-  UpdateChart();
+//  UpdateChart();
 end;
 
 end.

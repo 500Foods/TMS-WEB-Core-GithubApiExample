@@ -68,10 +68,7 @@ object Form1: TForm1
       Height = 122
       ElementClassName = 'calendar overflow-hidden  d-none flex-fill h-50 w-100 order-1 '
       ElementID = 'divChart'
-      HeightStyle = ssAuto
-      WidthStyle = ssAuto
       ChildOrder = 2
-      ElementPosition = epIgnore
       ElementFont = efCSS
       Role = ''
     end
