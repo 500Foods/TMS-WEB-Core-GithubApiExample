@@ -3,9 +3,9 @@ unit Unit1;
 interface
 
 uses
-  System.SysUtils, System.Classes, JS, Web, WEBLib.Graphics, WEBLib.Controls, WebLib.JSON, jsdelphisystem,
+  System.SysUtils, System.Classes, JS, Web, WEBLib.Graphics, WEBLib.Controls, jsdelphisystem,
   WEBLib.Forms, WEBLib.Dialogs, Vcl.Controls, WEBLib.WebCtrls, WEBLib.WebTools,
-  Vcl.StdCtrls, WEBLib.StdCtrls, WEBLib.REST, WEBLib.ExtCtrls, WEBLib.Storage, System.DateUtils;
+  Vcl.StdCtrls, WEBLib.StdCtrls, WEBLib.REST, WEBLib.JSON, WEBLib.ExtCtrls, WEBLib.Storage, System.DateUtils;
 
 type
   TForm1 = class(TWebForm)
@@ -24,6 +24,7 @@ type
     [async] procedure UpdateChart;
     [async] procedure UpdateCalendar;
     [async] function GetTrafficData(repo: String): JSValue;
+    procedure divChartDblClick(Sender: TObject);
   private
     { Private declarations }
   public
@@ -51,6 +52,7 @@ type
     Param_FontSize: Integer;
     Param_Background: String;
 
+    Highlight: String;
   end;
 
 var
@@ -59,6 +61,11 @@ var
 implementation
 
 {$R *.dfm}
+
+procedure TForm1.divChartDblClick(Sender: TObject);
+begin
+  window.open('https://www.500foods.com/githubapi/Project1.html?G='+gitHubToken,'_blank');
+end;
 
 function TForm1.GetTrafficData(repo: String): JSValue;
 var
@@ -80,11 +87,11 @@ begin
     if (TWebLocalStorage.getValue('GAE.Repo.DataAge.'+Repo) <> '') then
     begin
       RepoAge := StrToFloat(TwebLocalStorage.GetValue('GAE.Repo.DataAge.'+Repo));
+      Result := TWebLocalStorage.getValue('GAE.Repo.Data.'+Repo);
       if MinutesBetween(Now, RepoAge) < 60 then
       begin
         RequestData := False;
-        Result := TWebLocalStorage.getValue('GAE.Repo.Data.'+Repo);
-        console.log('Retrieving ['+Repo+'] Data from Cache');
+//        console.log('Retrieving ['+Repo+'] Data from Cache');
       end;
     end;
   end;
@@ -92,7 +99,7 @@ begin
   // Otherwise, go and get it
   if RequestData then
   begin
-    console.log('Retrieving ['+Repo+'] Data from GitHub');
+//    console.log('Retrieving ['+Repo+'] Data from GitHub');
     WebRequest := TWebHTTPRequest.Create(Self);
     WebRequest.URL := 'https://api.github.com/repos/'+repo+'/traffic/views';
     WebRequest.Headers.AddPair('Accept','application/vnd.github+json');
@@ -176,7 +183,7 @@ begin
     end;
   end;
 
-  console.log('drawing chart');
+//  console.log('drawing chart');
 
   NumRepos := 0;
 
@@ -265,7 +272,7 @@ begin
           }
         });
         if ((empty == true) && (i == 0)) {
-          console.log('Removing empty starting date: '+ChartData[i].date);
+//          console.log('Removing empty starting date: '+ChartData[i].date);
           ChartData.splice(i,1);
           i = i - 1;
         }
@@ -279,7 +286,7 @@ begin
           }
         });
         if ((empty == true) && (i == ChartData.length - 1)) {
-          console.log('Removing empty ending date: '+ChartData[i].date);
+//          console.log('Removing empty ending date: '+ChartData[i].date);
           ChartData.splice(i,1);
           i = i - 1;
         }
@@ -401,13 +408,23 @@ begin
            .each(function(p,j) {
              d3.select(this)
                .append('rect')
+               .on("click", function(d) {
+                 pas.Unit1.Form1.Highlight = p.key;
+                 pas.Unit1.Form1.UpdateChart();
+               })
                .attr('x', (d,i) => x(j) - (width/ChartData.length/2))
                .attr('y', d => y(d[1]))
                .attr('width', (width/ChartData.length))
                .attr('height', d => {
                  return y(d[0])-y(d[1])
                })
-               .attr('fill', "#F00")
+               .attr('fill', function(){
+                 if (pas.Unit1.Form1.Highlight == p.key) {
+                   return '#080';
+                 } else {
+                   return '#F00';
+                 }
+               })
                .attr('stroke', 'black')
                .attr('stroke-width', 1)
                .append("title")
@@ -471,8 +488,8 @@ procedure TForm1.UpdateTable;
 begin
   while not(tabReposBuilt) or (Table_Data = '') do
   begin
-    if table_data = '' then console.log('waiting for table');
-    if not(tabReposBuilt) then console.log('waiting for table');
+//    if table_data = '' then console.log('waiting for table');
+//    if not(tabReposBuilt) then console.log('waiting for table');
 
     asm
       async function sleep(msecs) {
@@ -543,7 +560,7 @@ begin
       Table_Data_Age := StrToFloat(TWebLocalStorage.GetValue('GAE.TableDataAge'));
       if MinutesBetween(Now, Table_Data_Age) < 60  then
       begin
-        console.log('Retrieving Table Data from Cache');
+//        console.log('Retrieving Table Data from Cache');
         Table_Data := TWebLocalStorage.GetValue('GAE.TableData');
         RequestData := False;
       end;
@@ -553,7 +570,7 @@ begin
 
   if RequestData then
   begin
-    console.log('Retrieving Table Data From GitHub');
+//    console.log('Retrieving Table Data From GitHub');
     WebEdit1.Text := '';
     WebEdit1.TextHint := 'Retrieving Repositories. Please Wait.';
 

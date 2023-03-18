@@ -71,6 +71,7 @@ object Form1: TForm1
       ChildOrder = 2
       ElementFont = efCSS
       Role = ''
+      OnDblClick = divChartDblClick
     end
   end
   object WebTimer1: TWebTimer
