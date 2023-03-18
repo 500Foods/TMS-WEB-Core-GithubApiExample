@@ -201,6 +201,7 @@ begin
     var repo = '';
     var title = '';
 
+
     // Figure out if any repositories are currently selected
     var table = pas.Unit1.Form1.tabRepos;
     var rows = table.getSelectedRows();
@@ -409,7 +410,11 @@ begin
              d3.select(this)
                .append('rect')
                .on("click", function(d) {
-                 pas.Unit1.Form1.Highlight = p.key;
+                 if (pas.Unit1.Form1.Highlight !== p.key) {
+                   pas.Unit1.Form1.Highlight = p.key;
+                 } else {
+                   pas.Unit1.Form1.Highlight = 'none';
+                 }
                  pas.Unit1.Form1.UpdateChart();
                })
                .attr('x', (d,i) => x(j) - (width/ChartData.length/2))
@@ -502,7 +507,11 @@ begin
 
   asm
     this.tabRepos.setData(JSON.parse(this.Table_Data));
-    this.tabRepos.selectRow();
+    // Select in order of number of stars - indirectly determines layout of chart
+    for (var i = 1; i <= this.tabRepos.getDataCount(); i++) {
+      var selectrows = this.tabRepos.getRowFromPosition(i);
+      this.tabRepos.selectRow(selectrows);
+    }
   end;
 end;
 
@@ -618,6 +627,9 @@ begin
     this.tabRepos = new Tabulator("#divTabulator", {
       layout: "fitColumns",
       selectable: true,
+      initialSort:[
+        {column:"stargazers_count", dir:"desc"}
+      ],
       columns: [
         { title: "Repository", field: "name", bottomCalc: "count", widthGrow: 3, headerMenu: headerMenu,
             formatter: function(cell, formatterParams, OnRendered){
