@@ -332,7 +332,7 @@ begin
       // https://www.educative.io/answers/how-to-create-stacked-bar-chart-using-d3
       // https://observablehq.com/@stuartathompson/a-step-by-step-guide-to-the-d3-v4-stacked-bar-chart
 
-        var margin = 8;
+        var margin = 0;
 //        if (pas.Unit1.Form1.automate) {
 //          margin = 2;
 ////          divChart.style.setProperty('background-color', bgcolor,'important');
@@ -392,7 +392,9 @@ begin
 
 
         // Deal with the X-Axis
-        var x = d3.scaleLinear().domain([0,ChartData.length-0.5]).range([margin*5,width]);
+        var x = d3.scaleLinear()
+                  .domain([-0.5,ChartData.length-0.5])
+                  .range([0,width-50]);
         var xAxis = d3.axisBottom(x)
                       .ticks(ChartData.length)
                       .tickFormat((d, i) => formatDate(parseDate(trafficdates[d])));
@@ -408,7 +410,7 @@ begin
 
 
         // Deal with the Y-Axis
-        var y = d3.scaleLinear().domain([0, yMax]).range([height - ParamY, 0])
+        var y = d3.scaleLinear().domain([0, yMax]).range([height - ParamY-45, -20])
         var yAxis = d3.axisLeft(y);
 
 //        if (pas.Unit1.Form1.automate == false) {
@@ -431,22 +433,22 @@ begin
              d3.select(this)
                .append('rect')
                .on("click", function(d) {
-                 if (pas.Unit1.Form1.Highlight !== p.key) {
-                   pas.Unit1.Form1.Highlight = p.key;
+                 if (!pas.Unit1.Form1.Highlight.includes('['+p.key+']')) {
+                   pas.Unit1.Form1.Highlight += '['+p.key+']';
                  } else {
-                   pas.Unit1.Form1.Highlight = 'none';
+                   pas.Unit1.Form1.Highlight = pas.Unit1.Form1.Highlight.replace('['+p.key+']','');
                  }
                  pas.Unit1.Form1.UpdateChart();
                })
                .attr('x', (d,i) => x(j) - (width/ChartData.length/2))
                .attr('y', d => y(d[1]))
-               .attr('width', (width/ChartData.length))
+               .attr('width', (width / (ChartData.length+1.75)))
                .attr('height', d => {
                  return y(d[0])-y(d[1])
                })
                .attr('fill', function(){
                  // Highlight = Dark Green
-                 if (pas.Unit1.Form1.Highlight == p.key) {
+                 if (pas.Unit1.Form1.Highlight.includes('['+p.key+']')) {
                    return '#080';
                  } else {
                    // Get count for past 14 days
@@ -467,9 +469,9 @@ begin
                });
              d3.select(this)
                .append("text")
-               .attr('x', (d,i) => x(j))
+               .attr('x', (d,i) => x(j) - 2)
                .attr('y', d => y(d[1])+(y(d[0])-y(d[1]))/2+(parseInt(pas.Unit1.Form1.Param_FontSize) / 3))
-               .attr('width', (width/ChartData.length))
+               .attr('width', (width/(ChartData.length+2)))
                .attr('height', d => {
                  return y(d[0])-y(d[1])
                })
@@ -753,6 +755,7 @@ begin
   // Parameters
 
   PauseChartUpdates := True;
+  Highlight := '[none]';
 
   Param_Mode := 'UI';
   Param_GitHubToken := '';
