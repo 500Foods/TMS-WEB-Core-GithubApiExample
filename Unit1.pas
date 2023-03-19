@@ -392,7 +392,7 @@ begin
 
 
         // Deal with the X-Axis
-        var x = d3.scaleLinear().domain([0,ChartData.length-1.5]).range([margin*5,width]);
+        var x = d3.scaleLinear().domain([0,ChartData.length-0.5]).range([margin*5,width]);
         var xAxis = d3.axisBottom(x)
                       .ticks(ChartData.length)
                       .tickFormat((d, i) => formatDate(parseDate(trafficdates[d])));
