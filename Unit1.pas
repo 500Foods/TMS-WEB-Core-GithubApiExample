@@ -33,6 +33,7 @@ type
     tabRepos: JSValue;
     tabReposBuilt: Boolean;
 
+    PauseChartUpdates: Boolean;
     Table_Data: String;
     Table_Data_Age: TDateTime;
 
@@ -110,9 +111,10 @@ begin
     try
       JSONData := TJSONObject.ParseJSONValue(Data) as TJSONObject;
       asm
+
         // this is the original JSON
         var traffic = JSON.parse(Data);
-
+//      console.log(traffic);
         // Want to convert it into something we can display in a chart
         var convert = {};
 
@@ -172,6 +174,10 @@ procedure TForm1.UpdateChart;
 var
   NumRepos: Integer;
 begin
+
+  if PauseChartUpdates then exit;
+//  console.log('updating chart');
+
 
   while not(tabReposBuilt) do
   begin
@@ -293,8 +299,23 @@ begin
         }
       }
 
-//      for (var i = 0; i < ChartData.length; i++) {
-//        var list = ChartData[i];
+      table.blockRedraw();
+      var r = table.getSelectedRows();
+      for (var i = 0; i < r.length; i++) {
+        r[i].getCell('pageviews').setValue(0);
+      }
+      for (var i = 0; i < ChartData.length; i++) {
+        var list = ChartData[i];
+        for (var rep in list) {
+          var r = table.searchRows('name','=',rep);
+          if (r.length == 1) {
+            var c = r[0].getCell('pageviews').getValue();
+            r[0].getCell('pageviews').setValue(c + list[rep]);
+          }
+        }
+      }
+      table.restoreRedraw();
+
 //        var keysSorted = Object.keys(list).sort(function(a,b){return list[a]-list[b]})
 //        console.log(keysSorted);
 //      }
@@ -424,10 +445,18 @@ begin
                  return y(d[0])-y(d[1])
                })
                .attr('fill', function(){
+                 // Highlight = Dark Green
                  if (pas.Unit1.Form1.Highlight == p.key) {
                    return '#080';
                  } else {
-                   return '#F00';
+                   // Get count for past 14 days
+                   var pv = pas.Unit1.Form1.tabRepos.searchRows('name','=',p.key)[0].getCell('pageviews').getValue();
+                   // Average > 3 per day = Red
+                   if (pv >= 42) {return '#F00';}
+                   // Average >1 1 per day = Maroon
+                   else if (pv >= 14) {return '#800';}
+                   // Average < 1 per day = Darker Red
+                   else {return '#500';}
                  }
                })
                .attr('stroke', 'black')
@@ -506,12 +535,20 @@ begin
 
 
   asm
-    this.tabRepos.setData(JSON.parse(this.Table_Data));
-    // Select in order of number of stars - indirectly determines layout of chart
-    for (var i = 1; i <= this.tabRepos.getDataCount(); i++) {
-      var selectrows = this.tabRepos.getRowFromPosition(i);
-      this.tabRepos.selectRow(selectrows);
-    }
+    this.tabRepos.setData(JSON.parse(this.Table_Data)).then(async function(){
+      pas.Unit1.Form1.PauseChartUpdates = true;
+      pas.Unit1.Form1.tabRepos.selectRow();
+      pas.Unit1.Form1.PauseChartUpdates = false;
+      await pas.Unit1.Form1.UpdateChart();
+      pas.Unit1.Form1.PauseChartUpdates = true;
+      pas.Unit1.Form1.tabRepos.deselectRow();
+      pas.Unit1.Form1.tabRepos.setSort('pageviews','desc');
+      for (var i = 1; i <= pas.Unit1.Form1.tabRepos.getDataCount(); i++) {
+        pas.Unit1.Form1.tabRepos.getRowFromPosition(i).select();
+      }
+      pas.Unit1.Form1.PauseChartUpdates = false;
+      pas.Unit1.Form1.UpdateChart();
+    });
   end;
 end;
 
@@ -547,6 +584,10 @@ var
   WebRequest: TWebHTTPRequest;
   WebResponse: TJSXMLHTTPRequest;
   RequestData: Boolean;
+  i: Integer;
+  count: Integer;
+  RepoJSON: TJSONArray;
+  RepoShort: String;
 begin
 
   // If the token doesn't pass muster then ask again
@@ -599,7 +640,41 @@ begin
         WebEdit1.TextHint := 'Retrieval Failed. Please try again.';
       end;
     end;
+
   end;
+
+  // Doh!  API call to get repo info doesn't contain subscribers_count which IS included
+  // when the usual public api call is made.  How infuriating.  So let's go get it again.
+  if not(Assigned(WebRequest)) then WebRequest := TWebHTTPRequest.Create(Self);
+  RepoJSON := TJSONObject.ParseJSONValue(Table_Data) as TJSONArray;
+  i := 0;
+  while i < RepoJSON.Count do
+  begin
+    count := -1;
+    if (((RepoJSON[i] as TJSONObject).getValue('private')) as TJSONValue).toString = 'false' then
+    begin
+      WebRequest.URL := 'https://api.github.com/repos/'+((RepoJSON[i] as TJSONObject).getValue('full_name') as TJSONString).Value;
+      WebResponse := await(TJSXMLHTTPRequest, WebRequest.Perform());
+      if ((TJSONObject.ParseJSONValue(String(WebResponse.Response)) as TJSONObject).getValue('subscribers_count') as TJSONString) <> nil
+      then count := ((TJSONObject.ParseJSONValue(String(WebResponse.Response)) as TJSONObject).getValue('subscribers_count') as TJSONNumber).asInt
+      else count := -1;
+    end;
+    if count > -1
+    then (RepoJSON[i] as TJSONObject).addPair('subscribers_count', count)
+    else (RepoJSON[i] as TJSONObject).addPair('subscribers_count', 0);
+
+    // Set pageviews to zero - will be updated later
+    (RepoJSON[i] as TJSONObject).addPair('pageviews', 0);
+
+    // Add Code name to data - Capital letters from last section of repository name
+    RepoShort := ((RepoJSON[i] as TJSONObject).getValue('name') as TJSONString).Value;
+    asm RepoShort = RepoShort.split('-').pop().replace(/[^A-Z]+/g, ""); end;
+    (RepoJSON[i] as TJSONObject).addPair('short_name', RepoShort);
+
+    i := i + 1;
+  end;
+  Table_Data := RepoJSON.ToString;
+
 end;
 
 procedure TForm1.WebFormCreate(Sender: TObject);
@@ -612,7 +687,12 @@ begin
       {
         label:"Select All",
         action:function(e, row){
-          row.getTable().selectRow();
+          var t = row.getTable();
+          pas.Unit1.Form1.PauseChartUpdates = true;
+          for (var i = 1; i <= t.getDataCount(); i++) {
+            t.getRowFromPosition(i).select();
+          }
+          pas.Unit1.Form1.PauseChartUpdates = false;
           pas.Unit1.Form1.UpdateChart();
         }
       },
@@ -628,7 +708,7 @@ begin
       layout: "fitColumns",
       selectable: true,
       initialSort:[
-        {column:"stargazers_count", dir:"desc"}
+        {column:"subscribers_count", dir:"desc"}
       ],
       columns: [
         { title: "Repository", field: "name", bottomCalc: "count", widthGrow: 3, headerMenu: headerMenu,
@@ -639,14 +719,21 @@ begin
         { title: "API URL", field: "url", visible: false },
         { title: "URL", field: "html_url", visible: false },
         { title: "Full Name", field: "full_name", visible: false },
-        { title: "Updated", field: "updated_at", widthGrow: 2 },
+        { title: "Code", field: "short_name", visible: true },
+        { title: "Updated", field: "pushed_at", widthGrow: 2, formatter: "datetime",
+            formatterParams: {
+              inputFormat:"iso",
+              outputFormat:"yyyy-MMM-dd (ccc) HH:mm:ss"
+            }
+        },
         { title: "License", field: "license.name", widthGrow: 2 },
         { title: "Language", field: "language", widthGrow: 2 },
-        { title: "Private", field: "priv", formatter: "tickCross", bottomCalc: "sum" },
-        { title: "Forks", field: "forks", bottomCalc: "sum" },
-        { title: "Issues", field: "open_issues_count", bottomCalc: "sum" },
-        { title: "Watchers", field: "watchers_count", bottomCalc: "sum" },
-        { title: "Stars", field: "stargazers_count", bottomCalc: "sum" }
+        { title: "Private", field: "private", formatter: "tickCross", bottomCalc: "sum" },
+        { title: "Forks", field: "forks", bottomCalc: "sum", formatter:"money", formatterParams:{precision:false}, hozAlign:"right", sorter:"number" },
+        { title: "Issues", field: "open_issues_count", bottomCalc: "sum", formatter:"money", formatterParams:{precision:false}, hozAlign:"right", sorter:"number" },
+        { title: "Watchers", field: "subscribers_count", bottomCalc: "sum", formatter:"money", formatterParams:{precision:false}, hozAlign:"right", sorter:"number" },
+        { title: "Stars", field: "stargazers_count", bottomCalc: "sum", formatter:"money", formatterParams:{precision:false}, hozAlign:"right", sorter:"number" },
+        { title: "Views", field: "pageviews", bottomCalc: "sum", formatter:"money", formatterParams:{precision:false}, hozAlign:"right", sorter:"number" }
       ]
     });
     this.tabRepos.on("tableBuilt", function(){
@@ -664,6 +751,8 @@ begin
 
 
   // Parameters
+
+  PauseChartUpdates := True;
 
   Param_Mode := 'UI';
   Param_GitHubToken := '';
