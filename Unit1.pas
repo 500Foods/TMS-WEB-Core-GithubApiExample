@@ -821,6 +821,7 @@ begin
   end
   else if Param_Mode = 'Chart' then
   begin
+    document.documentElement.setAttribute('style','overflow:hidden;');
     WebEdit1.Visible := False;
     divTabulator.Visible := False;
     Form1.ElementClassName := '';
