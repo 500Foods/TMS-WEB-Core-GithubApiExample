@@ -52,7 +52,7 @@ There is also a GitHub Integration available for Home Assistant, which exposes a
 
 ![image](https://user-images.githubusercontent.com/41052272/226448778-a45d9605-700a-46d5-9e46-7023994c7a87.png)
 
-## External Dependencies
+## Key Dependencies
 As with any modern web application, other JavaScript libraries/dependencies have been used in this project. Most of the time, this is handled via a CDN link (usually JSDelivr) in the Project.html file. In some cases, for performance or other reasons, they may be included directly.
 - [TMS WEB Core](https://www.tmssoftware.com/site/tmswebcore.asp) - This is a TMS WEB Core project, after all
 - [Bootstrap](https://getbootstrap.com/) - Version 5.3 support added with AdminLTE 4
