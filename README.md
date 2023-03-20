@@ -48,7 +48,7 @@ Defaults are supplied for any missing parameters.  Here's what it looks like whe
 In both these examples, the background was set to something that matched the Home Assistant dashboard theme.  Any CSS color value works just as well here, including 'transparent' if you want the background of the hosting page to show through.
 
 ## Home Assistant Notes
-There is also a GitHub Integration available for Home Assistant, which exposes a number of GitHub repository attributes as sensors that can be used elsewhre within Home Assistant.  While there isn't sufficient data in these sensors to generate either the chart or the calendar as we've done in this project, the data may still be useful.  Using a "row entities" card (available from HACS), along with some "helpers" for the totals, the following was created using the same repositories as our other examples above.
+There is also a GitHub Integration available for Home Assistant, which exposes a number of GitHub repository attributes as sensors that can be used elsewhere within Home Assistant.  While there isn't sufficient data in these sensors to generate either the chart or the calendar as we've done in this project, the data may still be useful.  Using a "row entities" card (available from HACS), along with some "helpers" for the totals, the following was created using the same repositories as our other examples above.
 
 ![image](https://user-images.githubusercontent.com/41052272/226448778-a45d9605-700a-46d5-9e46-7023994c7a87.png)
 
