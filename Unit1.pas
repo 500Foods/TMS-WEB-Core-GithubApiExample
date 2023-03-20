@@ -297,6 +297,11 @@ begin
           ChartData.splice(i,1);
           i = i - 1;
         }
+        if ((empty == true) && (i == ChartData.length - 1)) {
+//          console.log('Removing empty ending date: '+ChartData[i].date);
+          ChartData.splice(i,1);
+          i = i - 1;
+        }
       }
 
       table.blockRedraw();
