@@ -1,5 +1,60 @@
 # TMS-WEB-Core-GitHub-API-Example
- Example of using the GitHub API in a TMS WEB Core web app.
+This is a [TMS WEB Core](https://www.tmssoftware.com/site/tmswebcore.asp) example project that shows how to access and use data from the GitHub API.  It uses a supplied GitHub Personal Access token to retrieve repository data, specifically page views, in order to create a chart showing activity over the past two weeks - limited by the data provided through the GitHub API. Also, there is an option to display the GitHub Contribution Calendar by passing a GitHub username, which makes use of another project - [GitHub Calendar](https://github.com/Bloggify/github-calendar) - to do most of the heavy lifting.
+
+This project was created as part of an ongoing blog series on the [TMS Software](https://www.timssoftware.com) website related to TMS WEB Core.  The specific blog post can be found here: [TMS WEB Core and More with Andrew: GitHub and GitHub Desktop](https://www.tmssoftware.com/site/blog.asp?post=1036). It was also referenced (and updated) in a related post about displaying custom data in an <iframe> in [Home Assistant](https://homeassistant.io), specifically the chart and the GitHub Contributions Canlendar: [TMS WEB Core and More with Andrew: Working with Home Assistant - Part 1: Introduction] (https://www.tmssoftware.com/site/blog.asp?post=1044).
  
+## Getting Started - Interactive Mode
+This is a complete project that is intended to be entirely functional as-is. Simply load the project in any version of Delphi that supports TMS WEB Core.  This project was created using Delphi 10.3 and TMS WEB Core 2.05, for reference. Delphi 10+ should work fine, and any recent version of TMS WEB Core should work as well. Running the project will bring up the initial GitHub token request page.
+
+![image](https://user-images.githubusercontent.com/41052272/226444080-34d1a15e-b186-4fb6-81ac-b1b1332faefb.png)
+
+After entering a valid GitHub Personal Access Token with access to the page view information from a set of repositories, the page should update to show a list of those repositories with related information as well as chart showing the page view history available from GitHub.
+
+![image](https://user-images.githubusercontent.com/41052272/226442536-cc137204-49d6-4d6f-bf68-0b1e61659495.png)
+
+By default, all repositories are selected. Selecting or deselecting repositories listed in the table will add or remove them from the chart.  Hovering on a chart element will show the name of the repository and count.  The text labels are hidden if they are larger than the space available to draw them.  Clicking on a chart element will highlight all related elements from the same repository.  Click again to disable highlighting.
+
+## Alternate Modes
+Other modes are available by passing URL query parameters to the page.  These modes are used when you want to embed one of the charts in a <iframe> that is hosted on another website.  For example, this mechanism could be used to add a chart to the Home Assistant dashboard using a "Webpage card". The available parameters include the following.
+
+- M - Mode (Chart or Calendar)
+- G - Github API Personal Access Token
+- C - Calendar Name 
+- T - Top Margin 
+- L - Left Margin
+- W - Width
+- H - Height
+- B - Background
+- F - Font size
+
+## Chart Mode Example
+To display just the chart, a GitHub API Personal Access token must be included in the parameters.  This isn't stored anywhere else, but is stored locally (localStorage) so that it doesn't have to be entered again if you subsequently access the application interactively. For example, to display the chart within Home Assistant, you might use a URL like the following.
+
+```https://www.500foods.com/githubapi/Project1.html?M=Chart&T=5&W=490&H=425&B=%231C1C1C&F=16&G=github_pat_use_your_own_token_here_oxw7ehI5kPeRgqMrXAdq3hm6AloW4XkojZYbWicB4M5HL7E67mcfAd4Do```
+
+These parameters set the chart dimensions and font size to fit within a particular Home Assistant card arrangement and theme, so adjustments may be needed to fit into any particular Home Assistant dashboard.  Here's what it looks like when rendered there.
+
+![image](https://user-images.githubusercontent.com/41052272/226445358-eeb161b0-4995-4bbb-ae22-605e07585b84.png)
+
+## Calendar Mode Example
+To display just the GitHub Contributions Calendar, just a username needs to be supplied, as this data is publicly available - no API token required.  Similar to the above example, various parameters can be passed to fit the calendar output into the dimensions of a specific Home Assistant card.
+
+```https://www.500foods.com/githubapi/Project1.html?M=Calendar&W=460&H=200&B=%231C1C1C&C=500Foods&T=0&L=0```
+
+Defaults are supplied for any missing parameters.  Here's what it looks like when rendered there. 
+
+![image](https://user-images.githubusercontent.com/41052272/226445997-83d22f63-d3e1-49ad-8910-70f1839c79c3.png)
+
+In both these examples, the background was set to something that matched the Home Assistant dashboard theme.  Any CSS color value works just as well here, including 'transparent' if you want the background of the hosting page to show through.
+
+## External Dependencies
+As with any modern web application, other JavaScript libraries/dependencies have been used in this project. Most of the time, this is handled via a CDN link (usually JSDelivr) in the Project.html file. In some cases, for performance or other reasons, they may be included directly.
+- [TMS WEB Core](https://www.tmssoftware.com/site/tmswebcore.asp) - This is a TMS WEB Core project, after all
+- [Bootstrap](https://getbootstrap.com/) - Version 5.3 support added with AdminLTE 4
+- [Tabulator](https://www.tabulator.info) - Fantastic pure JavaScript web data tables
+- [Luxon](https://moment.github.io/luxon/#/) - Handling date and time conversions
+- [D3.js](https://d3js.org/) - Comprehensive JavaScript Charting Library
+- [GitHub Calendar](https://github.com/Bloggify/github-calendar) - Used for the GitHub Contributions Calendar
+
 ## Sponsor / Donate / Support
 If you find this work interesting, helpful, or useful, or that it has sved you time, money, or both, please consider direclty supporting these efforts financially via [GitHub Sponsors](https://github.com/sponsors/500Foods) or donating via [Buy Me a Pizza](https://www.buymeacoffee.com/andrewsimard500). Also, be sure to check out these other [GitHub Repositories](https://github.com/500Foods?tab=repositories&q=&sort=stargazers) that may be of interest to you.
