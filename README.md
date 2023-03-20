@@ -37,7 +37,7 @@ These parameters set the chart dimensions and font size to fit within a particul
 ![image](https://user-images.githubusercontent.com/41052272/226445358-eeb161b0-4995-4bbb-ae22-605e07585b84.png)
 
 ## Calendar Mode Example
-To display just the GitHub Contributions Calendar, just a username needs to be supplied, as this data is publicly available - no API token required.  Similar to the above example, various parameters can be passed to fit the calendar output into the dimensions of a specific Home Assistant card.
+To display just the GitHub Contributions Calendar, only a GitHub username needs to be supplied, as this data is publicly available - no API token required.  Similar to the above example, various parameters can be passed to fit the calendar output into the dimensions of a specific Home Assistant card.
 
 ```https://www.500foods.com/githubapi/Project1.html?M=Calendar&W=460&H=200&B=%231C1C1C&C=500Foods&T=0&L=0```
 
@@ -46,6 +46,11 @@ Defaults are supplied for any missing parameters.  Here's what it looks like whe
 ![image](https://user-images.githubusercontent.com/41052272/226445997-83d22f63-d3e1-49ad-8910-70f1839c79c3.png)
 
 In both these examples, the background was set to something that matched the Home Assistant dashboard theme.  Any CSS color value works just as well here, including 'transparent' if you want the background of the hosting page to show through.
+
+## Home Assistant Notes
+There is also a GitHub Integration available for Home Assistant, which exposes a number of GitHub repository attributes as sensors that can be used elsewhre within Home Assistant.  While there isn't sufficient data in these sensors to generate either the chart or the calendar as we've done in this project, the data may still be useful.  Using a "row entities" card (available from HACS) the following was created using the same repositories as our other examples above.
+
+![image](https://user-images.githubusercontent.com/41052272/226448778-a45d9605-700a-46d5-9e46-7023994c7a87.png)
 
 ## External Dependencies
 As with any modern web application, other JavaScript libraries/dependencies have been used in this project. Most of the time, this is handled via a CDN link (usually JSDelivr) in the Project.html file. In some cases, for performance or other reasons, they may be included directly.
