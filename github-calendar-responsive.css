@@ -2,6 +2,9 @@
     display: none;
 }
 
+table {
+  font-size: 0px;
+}
 tr {
   line-height: 7px;
   height: 7px !important;

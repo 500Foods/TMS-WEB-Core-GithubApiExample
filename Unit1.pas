@@ -73,7 +73,7 @@ var
   WebRequest: TWebHTTPRequest;
   WebResponse: TJSXMLHTTPRequest;
   Data: String;
-  JSONData: TJSONObject;
+//  JSONData: TJSONObject;
   RepoAge: TDateTime;
   RequestData: Boolean;
 
@@ -109,7 +109,7 @@ begin
 
     Data := String(WebResponse.Response);
     try
-      JSONData := TJSONObject.ParseJSONValue(Data) as TJSONObject;
+//      JSONData := TJSONObject.ParseJSONValue(Data) as TJSONObject;
       asm
 
         // this is the original JSON
