@@ -1,3 +1,56 @@
+.sr-only {
+    display: none;
+}
+
+tr {
+  line-height: 7px;
+  height: 7px !important;
+  text-align: left;
+}
+td.ContributionCalendar-day {
+    border-radius: 2px;
+    display: inline-block;
+    margin: 1px 1px 0px 0px !important;
+    height: 7px;
+    min-height: 7px;
+    max-height: 7px;
+    padding: 0px !important;
+    vertical-align: top;
+    width: 7px !important;
+}
+
+td:first-child {
+    display: none;
+}
+
+div.js-calendar-graph div:last-child {
+    display: none;
+}
+
+table.ContributionCalendar-grid thead {
+    display: none;
+}
+
+td.ContributionCalendar-day[data-level='0'] {
+    background-color: var(--color-calendar-graph-day-bg);
+}
+
+td.ContributionCalendar-day[data-level='1'] {
+    background-color: var(--color-calendar-graph-day-L1-bg);
+}
+
+td.ContributionCalendar-day[data-level='2'] {
+    background-color: var(--color-calendar-graph-day-L2-bg);
+}
+
+td.ContributionCalendar-day[data-level='3'] {
+    background-color: var(--color-calendar-graph-day-L3-bg);
+}
+
+td.ContributionCalendar-day[data-level='4'] {
+    background-color: var(--color-calendar-graph-day-L4-bg);
+}
+
 :root {
   --color-calendar-graph-day-L4-bg: #dddbdb;
   --color-calendar-graph-day-L3-bg: #39dd34;
@@ -206,4 +259,5 @@ text.ContributionCalendar-label {
     fill: #ccc;
     font-size: 11px;
 }
+
 

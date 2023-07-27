@@ -164,7 +164,7 @@ begin
       await sleep(100);
 
     document.body.style.setProperty('background', this.Param_Background);
-    GitHubCalendar(".calendar", this.Param_Calendar, { responsive: true });
+    GitHubCalendar(".calendar", this.Param_Calendar, { responsive: false });
   end;
 
   divChart.Visible := True;
