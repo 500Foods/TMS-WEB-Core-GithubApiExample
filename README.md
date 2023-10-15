@@ -61,5 +61,23 @@ As with any modern web application, other JavaScript libraries/dependencies have
 - [D3.js](https://d3js.org/) - Comprehensive JavaScript Charting Library
 - [GitHub Calendar](https://github.com/Bloggify/github-calendar) - Used for the GitHub Contributions Calendar
 
+## Repository Information
+[![Count Lines of Code](https://github.com/500Foods/TMS-WEB-Core-GithubApiExample/actions/workflows/main.yml/badge.svg)](https://github.com/500Foods/TMS-WEB-Core-GithubApiExample/actions/workflows/main.yml)
+```
+-------------------------------------------------------------------------------
+Language                     files          blank        comment           code
+-------------------------------------------------------------------------------
+Pascal                           2            147            241            499
+CSS                              2             57              0            340
+Delphi Form                      1              0              0             83
+Markdown                         1             21              0             44
+HTML                             2              9              7             37
+YAML                             2              4              8             15
+JavaScript                       1              0              0              1
+-------------------------------------------------------------------------------
+SUM:                            11            238            256           1019
+-------------------------------------------------------------------------------
+```
+
 ## Sponsor / Donate / Support
 If you find this work interesting, helpful, or useful, or that it has sved you time, money, or both, please consider direclty supporting these efforts financially via [GitHub Sponsors](https://github.com/sponsors/500Foods) or donating via [Buy Me a Pizza](https://www.buymeacoffee.com/andrewsimard500). Also, be sure to check out these other [GitHub Repositories](https://github.com/500Foods?tab=repositories&q=&sort=stargazers) that may be of interest to you.
