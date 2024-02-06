@@ -14,6 +14,7 @@ type
     divTabulator: TWebHTMLDiv;
     divChart: TWebHTMLDiv;
     WebTimer1: TWebTimer;
+    WebButton1: TWebButton;
     procedure WebFormShow(Sender: TObject);
     [async] procedure WebFormCreate(Sender: TObject);
     procedure WebFormResize(Sender: TObject);
@@ -25,6 +26,7 @@ type
     [async] procedure UpdateCalendar;
     [async] function GetTrafficData(repo: String): JSValue;
     procedure divChartDblClick(Sender: TObject);
+    [async] procedure WebButton1Click(Sender: TObject);
   private
     { Private declarations }
   public
@@ -557,6 +559,73 @@ begin
       pas.Unit1.Form1.UpdateChart();
     });
   end;
+end;
+
+procedure TForm1.WebButton1Click(Sender: TObject);
+begin
+  {$IFNDEF WIN32}
+  asm {
+
+
+async function Get_GitHub_Data(GITHUB_ACCOUNT, GITHUB_TOKEN, start_date, finish_date) {
+  const QUERY = `
+    query {
+      user(login: "${GITHUB_ACCOUNT}") {
+        contributionsCollection(from: "${start_date}", to: "${finish_date}") {
+          contributionCalendar {
+            totalContributions
+            weeks {
+              contributionDays {
+                date
+                contributionCount
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  console.log('Query: ', QUERY);
+
+  const options = {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `bearer ${GITHUB_TOKEN}`
+    },
+    body: JSON.stringify({ query: QUERY })
+  };
+
+  console.log('Options: ', options);
+
+  return fetch('https://api.github.com/graphql', options)
+    .then(res => {
+      console.log('Response: ', res);
+      return res.json();
+    })
+    .then(data => {
+      console.log('Data: ', data);
+      let contributions = [];
+      data.data.user.contributionsCollection.contributionCalendar.weeks.forEach(week => {
+        week.contributionDays.forEach(day => {
+          contributions.push({
+            date: day.date,
+            count: day.contributionCount
+          });
+        });
+      });
+      return contributions;
+    })
+    .catch(err => {
+      console.log(err);
+    });
+}
+
+
+ }  end;
+ {$ENDIF}
+
 end;
 
 procedure TForm1.WebEdit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);

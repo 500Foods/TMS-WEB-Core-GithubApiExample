@@ -74,6 +74,23 @@ object Form1: TForm1
       OnDblClick = divChartDblClick
     end
   end
+  object WebButton1: TWebButton
+    Left = 48
+    Top = 24
+    Width = 96
+    Height = 25
+    Caption = 'WebButton1'
+    ChildOrder = 1
+    ElementClassName = 'btn btn-light'
+    ElementFont = efCSS
+    ElementPosition = epIgnore
+    HeightStyle = ssAuto
+    HeightPercent = 100.000000000000000000
+    Visible = False
+    WidthStyle = ssAuto
+    WidthPercent = 100.000000000000000000
+    OnClick = WebButton1Click
+  end
   object WebTimer1: TWebTimer
     Interval = 600000
     OnTimer = WebTimer1Timer
