@@ -170,7 +170,10 @@ begin
     }
     await sleep(100);
 
-    document.body.style.setProperty('background', this.Param_Background);
+    divMain.style.setProperty('background-color', this.Param_Background,'important');
+    divMain.style.setProperty('position', 'absolute');
+    divMain.style.setProperty('width', '100%');
+    divMain.style.setProperty('height', '100%');
 
     async function Get_GitHub_Data(GITHUB_ACCOUNT, GITHUB_TOKEN, start_date, finish_date) {
 
@@ -305,7 +308,10 @@ begin
   divChart.Height := Param_Height;
 
   asm
-    document.body.style.setProperty('background', this.Param_Background);
+    divMain.style.setProperty('background-color', this.Param_Background,'important');
+    divMain.style.setProperty('position', 'absolute');
+    divMain.style.setProperty('width', '100%');
+    divMain.style.setProperty('height', '100%');
 
     var allrepodata = {};
     var repodata = {};
