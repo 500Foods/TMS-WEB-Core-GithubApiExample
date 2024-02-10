@@ -1,0 +1,52 @@
+html, body {
+  background-color: #000;
+}
+
+.Calendar {
+  width: unset !important;
+  height: 235px !important;
+  position: absolute !important;
+  top: 10px !important;
+  left: 10px !important;
+}
+
+#divChart > div.None {
+  border-radius: 5px;
+  width: 30px;
+  height: 30px;
+  background-color: #333333;
+}
+
+#divChart > div.Low {
+  border-radius: 5px;
+  width: 30px;
+  height: 30px;
+  background-color: darkgreen;
+}
+
+#divChart > div.Medium {
+  border-radius: 5px;
+  width: 30px;
+  height: 30px;
+  background-color: orange;
+}
+
+#divChart > div.High {
+  border-radius: 5px;
+  width: 30px;
+  height: 30px;
+  background-color: yellow;
+
+  display: flex;
+  font-size: 16px;
+  justify-content: center;
+  align-items: center;
+  font-weight: 700;
+  color: green;
+  font-family: Cairo;
+}
+
+#divChart > div.First {
+  filter: drop-shadow(0px 0px 2px white);
+}
+

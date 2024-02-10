@@ -14,7 +14,6 @@ type
     divTabulator: TWebHTMLDiv;
     divChart: TWebHTMLDiv;
     WebTimer1: TWebTimer;
-    WebButton1: TWebButton;
     procedure WebFormShow(Sender: TObject);
     [async] procedure WebFormCreate(Sender: TObject);
     procedure WebFormResize(Sender: TObject);
@@ -26,7 +25,6 @@ type
     [async] procedure UpdateCalendar;
     [async] function GetTrafficData(repo: String): JSValue;
     procedure divChartDblClick(Sender: TObject);
-    [async] procedure WebButton1Click(Sender: TObject);
   private
     { Private declarations }
   public
@@ -54,6 +52,7 @@ type
 
     Param_FontSize: Integer;
     Param_Background: String;
+    Param_Scale: String;
 
     Highlight: String;
   end;
@@ -158,16 +157,121 @@ begin
   divChart.Left := Param_Left;
   divChart.Width := Param_Width;
   divChart.Height := Param_Height;
+  divChart.HTML.Text := '';
+  divChart.ElementClassName := 'position-absolute Calendar d-flex gap-1 flex-column flex-wrap flex-fill';
+  divChart.ElementHandle.style.setProperty('transform-origin','top left');
+  divChart.ElementHandle.style.setProperty('transform','scale('+Param_Scale+')');
 
-  asm
-      async function sleep(msecs) {
-        return new Promise((resolve) =>setTimeout(resolve, msecs));
-      }
-      await sleep(100);
+  {$IFNDEF WIN32}
+  asm {
+
+    async function sleep(msecs) {
+      return new Promise((resolve) =>setTimeout(resolve, msecs));
+    }
+    await sleep(100);
 
     document.body.style.setProperty('background', this.Param_Background);
-    GitHubCalendar(".calendar", this.Param_Calendar, { responsive: false });
-  end;
+
+    async function Get_GitHub_Data(GITHUB_ACCOUNT, GITHUB_TOKEN, start_date, finish_date) {
+
+      const QUERY = `
+        query {
+          user(login: "${GITHUB_ACCOUNT}") {
+            contributionsCollection(from: "${start_date}", to: "${finish_date}") {
+              contributionCalendar {
+                totalContributions
+                weeks {
+                  contributionDays {
+                    date
+                    contributionCount
+                  }
+                }
+              }
+            }
+          }
+        }
+      `;
+
+//      console.log('Query: ', QUERY);
+
+      const options = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `bearer ${GITHUB_TOKEN}`
+        },
+        body: JSON.stringify({ query: QUERY })
+      };
+
+//      console.log('Options: ', options);
+
+      return fetch('https://api.github.com/graphql', options)
+        .then(res => {
+//          console.log('Response: ', res);
+          return res.json();
+        })
+        .then(data => {
+//          console.log('Data: ', data);
+          let contributions = [];
+          data.data.user.contributionsCollection.contributionCalendar.weeks.forEach(week => {
+            week.contributionDays.forEach(day => {
+              contributions.push({
+                date: day.date,
+                count: day.contributionCount
+              });
+            });
+          });
+          return contributions;
+        })
+        .catch(err => {
+          console.log(err);
+        });
+    }
+
+    var calendardata = (await Get_GitHub_Data(
+      this.Param_Calendar,
+      this.Param_GitHubToken,
+      new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toJSON(),
+      new Date().toJSON()
+    ));
+
+    var i = 0;
+    var started = false;
+    while (i < calendardata.length) {
+      if ((started == false) && (new Date(calendardata[i].date).getUTCDay() == 0)) {
+        started = true;
+      }
+
+      if (started == true) {
+        console.log(calendardata[i].date+' '+calendardata[i].count);
+        var cal = document.createElement('div');
+        if (calendardata[i].count == 0) {
+          cal.classList.add('None');
+        } else if (calendardata[i].count < 6) {
+          cal.classList.add('Low');
+        } else if (calendardata[i].count < 11) {
+          cal.classList.add('Medium');
+        } else {
+          cal.classList.add('High');
+          cal.innerHTML = calendardata[i].count;
+        }
+        if (new Date(calendardata[i].date).getUTCDate() == 1) {
+          cal.classList.add('First');
+        }
+
+        cal.setAttribute('title',calendardata[i].date+': '+calendardata[i].count);
+        divChart.appendChild(cal);
+      }
+
+      i++;
+    }
+
+    divChart.addEventListener('click', () =>
+      window.open(window.location.href, '_blank').focus()
+    );
+
+  }  end;
+  {$ENDIF}
 
   divChart.Visible := True;
 end;
@@ -561,73 +665,6 @@ begin
   end;
 end;
 
-procedure TForm1.WebButton1Click(Sender: TObject);
-begin
-  {$IFNDEF WIN32}
-  asm {
-
-
-async function Get_GitHub_Data(GITHUB_ACCOUNT, GITHUB_TOKEN, start_date, finish_date) {
-  const QUERY = `
-    query {
-      user(login: "${GITHUB_ACCOUNT}") {
-        contributionsCollection(from: "${start_date}", to: "${finish_date}") {
-          contributionCalendar {
-            totalContributions
-            weeks {
-              contributionDays {
-                date
-                contributionCount
-              }
-            }
-          }
-        }
-      }
-    }
-  `;
-
-  console.log('Query: ', QUERY);
-
-  const options = {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `bearer ${GITHUB_TOKEN}`
-    },
-    body: JSON.stringify({ query: QUERY })
-  };
-
-  console.log('Options: ', options);
-
-  return fetch('https://api.github.com/graphql', options)
-    .then(res => {
-      console.log('Response: ', res);
-      return res.json();
-    })
-    .then(data => {
-      console.log('Data: ', data);
-      let contributions = [];
-      data.data.user.contributionsCollection.contributionCalendar.weeks.forEach(week => {
-        week.contributionDays.forEach(day => {
-          contributions.push({
-            date: day.date,
-            count: day.contributionCount
-          });
-        });
-      });
-      return contributions;
-    })
-    .catch(err => {
-      console.log(err);
-    });
-}
-
-
- }  end;
- {$ENDIF}
-
-end;
-
 procedure TForm1.WebEdit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
   if (Key = VK_RETURN) then
@@ -842,6 +879,7 @@ begin
 
   Param_FontSize := 10;
   Param_Background := '#212529';
+  Param_Scale := '1';
 
 
   // See if they're already in localStorage
@@ -857,6 +895,7 @@ begin
 
   Param_FontSize := StrToIntDef(TWebLocalStorage.GetValue('GAE.F'), Param_FontSize);
   Param_Background := TWebLocalStorage.GetValue('GAE.B');
+  Param_Scale := TWebLocalStorage.GetValue('GAE.S');
 
 
   // Load up any that are passed as URL parameters
@@ -871,6 +910,7 @@ begin
 
   if GetQueryParam('F') <> '' then   Param_FontSize := StrToIntDef(GetQueryParam('F'), Param_FontSize);
   if GetQueryParam('B') <> '' then   Param_Background := GetQueryParam('B');
+  if GetQueryParam('S') <> '' then   Param_Scale := GetQueryParam('S');
 
 
   // Use token if we've got one
