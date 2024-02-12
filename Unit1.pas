@@ -198,13 +198,14 @@ begin
       divMain.style.setProperty('width', '100%');
       divMain.style.setProperty('height', '100%');
 
+//              contributionsCollection(from: "${start_date}", to: "${finish_date}") {
 
       async function Get_GitHub_Data(GITHUB_ACCOUNT, GITHUB_TOKEN, start_date, finish_date) {
 
         const QUERY = `
           query {
             user(login: "${GITHUB_ACCOUNT}") {
-              contributionsCollection(from: "${start_date}", to: "${finish_date}") {
+              contributionsCollection {
                 contributionCalendar {
                   totalContributions
                   weeks {
