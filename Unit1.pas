@@ -69,7 +69,7 @@ implementation
 
 procedure TForm1.divChartDblClick(Sender: TObject);
 begin
-  window.open('https://www.500foods.com/githubapi/Project1.html?G='+gitHubToken,'_blank');
+  window.open(window.location.href,'_blank');
 end;
 
 function TForm1.GetTrafficData(repo: String): JSValue;
@@ -177,7 +177,9 @@ begin
     begin
       {$IFNDEF WIN32}
       asm {
-        pas.Unit1.Form1.NextCalendar = new Date().getUTCDay()
+        divChart.addEventListener('click', () =>
+          window.open(window.location.href, '_blank').focus()
+        );
       } end;
       {$ENDIF}
     end;
