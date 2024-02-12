@@ -55,6 +55,9 @@ type
     Param_Scale: String;
 
     Highlight: String;
+    CurrentCalendar: Integer;
+    NextCalendar: Integer;
+
   end;
 
 var
@@ -164,117 +167,135 @@ begin
 
   {$IFNDEF WIN32}
   asm {
+    pas.Unit1.Form1.NextCalendar = new Date().getUTCDay()
+  } end;
+  {$ENDIF}
 
-    async function sleep(msecs) {
-      return new Promise((resolve) =>setTimeout(resolve, msecs));
-    }
-    await sleep(100);
+  if CurrentCalendar <> NextCalendar then
+  begin
+    if CurrentCalendar = -1  then
+    begin
+      {$IFNDEF WIN32}
+      asm {
+        pas.Unit1.Form1.NextCalendar = new Date().getUTCDay()
+      } end;
+      {$ENDIF}
+    end;
 
-    divMain.style.setProperty('background-color', this.Param_Background,'important');
-    divMain.style.setProperty('position', 'absolute');
-    divMain.style.setProperty('width', '100%');
-    divMain.style.setProperty('height', '100%');
+    CurrentCalendar := NextCalendar;
 
-    async function Get_GitHub_Data(GITHUB_ACCOUNT, GITHUB_TOKEN, start_date, finish_date) {
+    {$IFNDEF WIN32}
+    asm {
 
-      const QUERY = `
-        query {
-          user(login: "${GITHUB_ACCOUNT}") {
-            contributionsCollection(from: "${start_date}", to: "${finish_date}") {
-              contributionCalendar {
-                totalContributions
-                weeks {
-                  contributionDays {
-                    date
-                    contributionCount
+
+      async function sleep(msecs) {
+        return new Promise((resolve) =>setTimeout(resolve, msecs));
+      }
+      await sleep(100);
+
+      divMain.style.setProperty('background-color', this.Param_Background,'important');
+      divMain.style.setProperty('position', 'absolute');
+      divMain.style.setProperty('width', '100%');
+      divMain.style.setProperty('height', '100%');
+
+
+      async function Get_GitHub_Data(GITHUB_ACCOUNT, GITHUB_TOKEN, start_date, finish_date) {
+
+        const QUERY = `
+          query {
+            user(login: "${GITHUB_ACCOUNT}") {
+              contributionsCollection(from: "${start_date}", to: "${finish_date}") {
+                contributionCalendar {
+                  totalContributions
+                  weeks {
+                    contributionDays {
+                      date
+                      contributionCount
+                    }
                   }
                 }
               }
             }
           }
-        }
-      `;
+        `;
 
-//      console.log('Query: ', QUERY);
+//        console.log('Query: ', QUERY);
 
-      const options = {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `bearer ${GITHUB_TOKEN}`
-        },
-        body: JSON.stringify({ query: QUERY })
-      };
+        const options = {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `bearer ${GITHUB_TOKEN}`
+          },
+          body: JSON.stringify({ query: QUERY })
+        };
 
-//      console.log('Options: ', options);
+//        console.log('Options: ', options);
 
-      return fetch('https://api.github.com/graphql', options)
-        .then(res => {
-//          console.log('Response: ', res);
-          return res.json();
-        })
-        .then(data => {
-//          console.log('Data: ', data);
-          let contributions = [];
-          data.data.user.contributionsCollection.contributionCalendar.weeks.forEach(week => {
-            week.contributionDays.forEach(day => {
-              contributions.push({
-                date: day.date,
-                count: day.contributionCount
+        return fetch('https://api.github.com/graphql', options)
+          .then(res => {
+//            console.log('Response: ', res);
+            return res.json();
+          })
+          .then(data => {
+//            console.log('Data: ', data);
+            let contributions = [];
+            data.data.user.contributionsCollection.contributionCalendar.weeks.forEach(week => {
+              week.contributionDays.forEach(day => {
+                contributions.push({
+                  date: day.date,
+                  count: day.contributionCount
+                });
               });
             });
+            return contributions;
+          })
+          .catch(err => {
+            console.log(err);
           });
-          return contributions;
-        })
-        .catch(err => {
-          console.log(err);
-        });
-    }
-
-    var calendardata = (await Get_GitHub_Data(
-      this.Param_Calendar,
-      this.Param_GitHubToken,
-      new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toJSON(),
-      new Date().toJSON()
-    ));
-
-    var i = 0;
-    var started = false;
-    while (i < calendardata.length) {
-      if ((started == false) && (new Date(calendardata[i].date).getUTCDay() == 0)) {
-        started = true;
       }
 
-      if (started == true) {
-        console.log(calendardata[i].date+' '+calendardata[i].count);
-        var cal = document.createElement('div');
-        if (calendardata[i].count == 0) {
-          cal.classList.add('None');
-        } else if (calendardata[i].count < 6) {
-          cal.classList.add('Low');
-        } else if (calendardata[i].count < 11) {
-          cal.classList.add('Medium');
-        } else {
-          cal.classList.add('High');
-          cal.innerHTML = calendardata[i].count;
-        }
-        if (new Date(calendardata[i].date).getUTCDate() == 1) {
-          cal.classList.add('First');
+      var calendardata = (await Get_GitHub_Data(
+        this.Param_Calendar,
+        this.Param_GitHubToken,
+        new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toJSON(),
+        new Date().toJSON()
+      ));
+
+      var i = 0;
+      divChart.replaceChildren();
+      var started = false;
+      while (i < calendardata.length) {
+        if ((started == false) && (new Date(calendardata[i].date).getUTCDay() == 0)) {
+          started = true;
         }
 
-        cal.setAttribute('title',calendardata[i].date+': '+calendardata[i].count);
-        divChart.appendChild(cal);
+        if (started == true) {
+//        console.log(calendardata[i].date+' '+calendardata[i].count);
+          var cal = document.createElement('div');
+          if (calendardata[i].count == 0) {
+            cal.classList.add('None');
+          } else if (calendardata[i].count < 6) {
+            cal.classList.add('Low');
+          } else if (calendardata[i].count < 11) {
+            cal.classList.add('Medium');
+          } else {
+            cal.classList.add('High');
+            cal.innerHTML = calendardata[i].count;
+          }
+          if (new Date(calendardata[i].date).getUTCDate() == 1) {
+            cal.classList.add('First');
+          }
+
+          cal.setAttribute('title',calendardata[i].date+': '+calendardata[i].count);
+          divChart.appendChild(cal);
+        }
+
+        i++;
       }
-
-      i++;
-    }
-
-    divChart.addEventListener('click', () =>
-      window.open(window.location.href, '_blank').focus()
-    );
-
-  }  end;
-  {$ENDIF}
+    }  end;
+    {$ENDIF}
+  end;
 
   divChart.Visible := True;
 end;
@@ -798,7 +819,7 @@ end;
 
 procedure TForm1.WebFormCreate(Sender: TObject);
 begin
-
+  CurrentCalendar := -1;
 
   tabReposBuilt := False;
   asm
