@@ -26,31 +26,32 @@ Other modes are available by passing URL query parameters to the page.  These mo
 - H - Height
 - B - Background
 - F - Font size
+- S - Scale (used with Calendar mode only at the moment)
 
 ## Chart Mode Example
-To display just the chart, a GitHub API Personal Access token must be included in the parameters.  This isn't stored anywhere else, but is stored locally (localStorage) so that it doesn't have to be entered again if you subsequently access the application interactively. For example, to display the chart within Home Assistant, you might use a URL like the following.
+To display just the chart, a GitHub API Personal Access Token must be included in the parameters.  This isn't stored anywhere else but is stored locally (localStorage) so that it doesn't have to be entered again if you subsequently access the application interactively. For example, to display the chart within Home Assistant, you might use a URL like the following.
 
-```https://www.500foods.com/githubapi/Project1.html?M=Chart&T=5&W=490&H=425&B=%231C1C1C&F=16&G=github_pat_use_your_own_token_here_oxw7ehI5kPeRgqMrXAdq3hm6AloW4XkojZYbWicB4M5HL7E67mcfAd4Do```
+```https://www.example.com/Project1.html?M=Chart&T=5&W=490&H=425&B=%231C1C1C&F=16&G=github_pat_use_your_own_token_here_oxw7ehI5kPeRgqMrXAdq3hm6AloW4XkojZYbWicB4M5HL7E67mcfAd4Do```
 
 These parameters set the chart dimensions and font size to fit within a particular Home Assistant card arrangement and theme, so adjustments may be needed to fit into any particular Home Assistant dashboard.  Here's what it looks like when rendered there.
 
-![image](https://user-images.githubusercontent.com/41052272/226445358-eeb161b0-4995-4bbb-ae22-605e07585b84.png)
+![image](https://github.com/500Foods/TMS-WEB-Core-GithubApiExample/assets/41052272/59fca86a-1286-420d-8449-85f772475291)
 
 ## Calendar Mode Example
-To display just the GitHub Contributions Calendar, only a GitHub username needs to be supplied, as this data is publicly available - no API token required.  Similar to the above example, various parameters can be passed to fit the calendar output into the dimensions of a specific Home Assistant card.
+To display just the GitHub Contributions Calendar, a similar set of parameters is required, including the GitHub username and GitHub API Personal Access Token. In previous versions of this project, a separate JavaScript library was used to retrieve this data, but that proved to be rather unreliable. Instead, it now uses GitHub's GraphQL interface to retrieve the data. This is then used to draw the calendar, along with CSS to control its formatting using primarily just CSS flex. Fancy! In any event, this is drawn differently than the regular chart, so it has been setup to use a CSS transform, scale() to adjust the size. For example, to fit it into a Home Assistant card, you might use something like this.
 
-```https://www.500foods.com/githubapi/Project1.html?M=Calendar&W=460&H=200&B=%231C1C1C&C=500Foods&T=0&L=0```
+```https://www.example.com/Project1.html?M=Calendar&B=%231C1C1C&C=500Foods&S=0.25&G=github_pat_use_your_own_token_here_oxw7ehI5kPeRgqMrXAdq3hm6AloW4XkojZYbWicB4M5HL7E67mcfAd4Do```
 
 Defaults are supplied for any missing parameters.  Here's what it looks like when rendered there. 
 
-![image](https://user-images.githubusercontent.com/41052272/226445997-83d22f63-d3e1-49ad-8910-70f1839c79c3.png)
+![image](https://github.com/500Foods/TMS-WEB-Core-GithubApiExample/assets/41052272/0d44f903-c974-4eac-92b9-a3fa4cae9fc6)
 
 In both these examples, the background was set to something that matched the Home Assistant dashboard theme.  Any CSS color value works just as well here, including 'transparent' if you want the background of the hosting page to show through.
 
 ## Home Assistant Notes
-There is also a GitHub Integration available for Home Assistant, which exposes a number of GitHub repository attributes as sensors that can be used elsewhere within Home Assistant.  While there isn't sufficient data in these sensors to generate either the chart or the calendar as we've done in this project, the data may still be useful.  Using a "row entities" card (available from HACS), along with some "helpers" for the totals, the following was created using the same repositories as our other examples above.
+There is also a GitHub Integration available for Home Assistant, which exposes several GitHub repository attributes as sensors that can be used elsewhere within Home Assistant. While there isn't sufficient data in these sensors to generate either the chart or the calendar as we've done in this project, the data may still be useful. Using a "multiple row entities" card (available from HACS), along with some "helpers" for the totals, the following was created using the same repositories as our other examples above.
 
-![image](https://user-images.githubusercontent.com/41052272/226448778-a45d9605-700a-46d5-9e46-7023994c7a87.png)
+![image](https://github.com/500Foods/TMS-WEB-Core-GithubApiExample/assets/41052272/be56bfd9-02fa-48a2-88b0-38e2920e7806)
 
 ## Key Dependencies
 As with any modern web application, other JavaScript libraries/dependencies have been used in this project. Most of the time, this is handled via a CDN link (usually JSDelivr) in the Project.html file. In some cases, for performance or other reasons, they may be included directly.
@@ -59,7 +60,6 @@ As with any modern web application, other JavaScript libraries/dependencies have
 - [Tabulator](https://www.tabulator.info) - Fantastic pure JavaScript web data tables
 - [Luxon](https://moment.github.io/luxon/#/) - Handling date and time conversions
 - [D3.js](https://d3js.org/) - Comprehensive JavaScript Charting Library
-- [GitHub Calendar](https://github.com/Bloggify/github-calendar) - Used for the GitHub Contributions Calendar
 
 ## Repository Information
 [![Count Lines of Code](https://github.com/500Foods/TMS-WEB-Core-GithubApiExample/actions/workflows/main.yml/badge.svg)](https://github.com/500Foods/TMS-WEB-Core-GithubApiExample/actions/workflows/main.yml)
