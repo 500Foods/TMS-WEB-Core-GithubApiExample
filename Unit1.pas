@@ -106,7 +106,7 @@ begin
   begin
 //    console.log('Retrieving ['+Repo+'] Data from GitHub');
     WebRequest := TWebHTTPRequest.Create(Self);
-    WebRequest.URL := 'https://api.github.com/repos/'+repo+'/traffic/views';
+    WebRequest.URL := 'https://api.github.com/repos/'+repo+'/traffic/views?per_page=50';
     WebRequest.Headers.AddPair('Accept','application/vnd.github+json');
     WebRequest.Headers.AddPair('Authorization','Bearer '+GitHubToken);
     WebResponse := await(TJSXMLHTTPRequest, WebRequest.Perform());
@@ -768,7 +768,7 @@ begin
     WebEdit1.TextHint := 'Retrieving Repositories. Please Wait.';
 
     WebRequest := TWebHTTPRequest.Create(Self);
-    WebRequest.URL := 'https://api.github.com/user/repos';
+    WebRequest.URL := 'https://api.github.com/user/repos?per_page=50';
     WebRequest.Headers.AddPair('Accept','application/vnd.github+json');
     WebRequest.Headers.AddPair('Authorization','Bearer '+Form1.GitHubToken);
     WebResponse := await(TJSXMLHTTPRequest, WebRequest.Perform());
