@@ -68,18 +68,18 @@ As with any modern web application, other JavaScript libraries/dependencies have
 [![Count Lines of Code](https://github.com/500Foods/TMS-WEB-Core-GithubApiExample/actions/workflows/main.yml/badge.svg)](https://github.com/500Foods/TMS-WEB-Core-GithubApiExample/actions/workflows/main.yml)
 <!--CLOC-START -->
 ```
-Last Updated at 2024-03-09 06:33:28 UTC
+Last Updated at 2024-03-09 11:33:51 UTC
 -------------------------------------------------------------------------------
 Language                     files          blank        comment           code
 -------------------------------------------------------------------------------
-Pascal                           2            164            289            573
+Pascal                           2            182            415            650
 Delphi Form                      1              0              0             83
 Markdown                         1             24              2             65
-CSS                              1              8              0             44
+CSS                              1              9              0             47
 HTML                             2              7              6             34
 YAML                             2              8             12             33
 -------------------------------------------------------------------------------
-SUM:                             9            211            309            832
+SUM:                             9            230            435            912
 -------------------------------------------------------------------------------
 ```
 <!--CLOC-END-->
