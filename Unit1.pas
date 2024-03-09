@@ -469,13 +469,13 @@ begin
 
           request.onsuccess = async () => {
             const lastUpdatedObj = request.result;
-            const lastUpdatedTime = lastUpdatedObj ? lastUpdatedObj.timestamp : 0;
-            const currentTime = new Date().getTime();
+            const lastUpdatedTime = new Date(lastUpdatedObj ? lastUpdatedObj.timestamp : 0);
+            const currentTime = new Date();
 
 //            if (refresh || currentTime - lastUpdatedTime > 60 * 60 * 1000) {
 
             // Data needs to be refreshed or the hour (more specifically the day) has changed
-            if (refresh || (currentTime.getHours !==lastUpdatedTime.getHours)) {
+            if (refresh || (currentTime.getHours() !== lastUpdatedTime.getHours())) {
               // Data needs to be refreshed or is older than 60 minutes
               const updatedRepos = await fetchGitHubRepoData(githubToken, pageSize, refresh);
               const processedData = processTrafficData(updatedRepos);
