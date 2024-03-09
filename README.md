@@ -53,6 +53,9 @@ There is also a GitHub Integration available for Home Assistant, which exposes s
 
 ![image](https://github.com/500Foods/TMS-WEB-Core-GithubApiExample/assets/41052272/be56bfd9-02fa-48a2-88b0-38e2920e7806)
 
+## Additional Notes
+The original version of this project used a more traditional Delphi approach to acquire data using TWeb-style components and methods. Over time this has been replaced with more direct JavaScript fetch() calls and a more streamlined approach to acquiring and formatting the data. This has led to an improvement in performance but a great deterioration in readability, as of course the JavaScript folks seem to prefer making things and terse and obscure as possible. 
+
 ## Key Dependencies
 As with any modern web application, other JavaScript libraries/dependencies have been used in this project. Most of the time, this is handled via a CDN link (usually JSDelivr) in the Project.html file. In some cases, for performance or other reasons, they may be included directly.
 - [TMS WEB Core](https://www.tmssoftware.com/site/tmswebcore.asp) - This is a TMS WEB Core project, after all
