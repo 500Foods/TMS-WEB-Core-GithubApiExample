@@ -53,6 +53,9 @@ There is also a GitHub Integration available for Home Assistant, which exposes s
 
 ![image](https://github.com/500Foods/TMS-WEB-Core-GithubApiExample/assets/41052272/be56bfd9-02fa-48a2-88b0-38e2920e7806)
 
+## Additional Notes
+The original version of this project used a more traditional Delphi approach to acquire data using TWeb-style components and methods. Over time this has been replaced with more direct JavaScript fetch() calls and a more streamlined approach to acquiring and formatting the data. This has led to an improvement in performance but a great deterioration in readability, as of course the JavaScript folks seem to prefer making things and terse and obscure as possible. 
+
 ## Key Dependencies
 As with any modern web application, other JavaScript libraries/dependencies have been used in this project. Most of the time, this is handled via a CDN link (usually JSDelivr) in the Project.html file. In some cases, for performance or other reasons, they may be included directly.
 - [TMS WEB Core](https://www.tmssoftware.com/site/tmswebcore.asp) - This is a TMS WEB Core project, after all
@@ -65,18 +68,18 @@ As with any modern web application, other JavaScript libraries/dependencies have
 [![Count Lines of Code](https://github.com/500Foods/TMS-WEB-Core-GithubApiExample/actions/workflows/main.yml/badge.svg)](https://github.com/500Foods/TMS-WEB-Core-GithubApiExample/actions/workflows/main.yml)
 <!--CLOC-START -->
 ```
-Last Updated at 2024-02-13 08:01:12 UTC
+Last Updated at 2024-03-09 06:33:28 UTC
 -------------------------------------------------------------------------------
 Language                     files          blank        comment           code
 -------------------------------------------------------------------------------
 Pascal                           2            164            289            573
 Delphi Form                      1              0              0             83
-Markdown                         1             23              2             63
+Markdown                         1             24              2             65
 CSS                              1              8              0             44
 HTML                             2              7              6             34
 YAML                             2              8             12             33
 -------------------------------------------------------------------------------
-SUM:                             9            210            309            830
+SUM:                             9            211            309            832
 -------------------------------------------------------------------------------
 ```
 <!--CLOC-END-->
