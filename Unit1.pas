@@ -189,10 +189,6 @@ begin
     {$IFNDEF WIN32}
     asm {
 
-
-      async function sleep(msecs) {
-        return new Promise((resolve) =>setTimeout(resolve, msecs));
-      }
       await sleep(100);
 
       divMain.style.setProperty('background-color', this.Param_Background,'important');
@@ -304,361 +300,579 @@ begin
 end;
 
 procedure TForm1.UpdateChart;
-var
-  NumRepos: Integer;
+
 begin
-
-  if PauseChartUpdates then exit;
-//  console.log('updating chart');
-
-
-  while not(tabReposBuilt) do
-  begin
-    asm
-      async function sleep(msecs) {
-        return new Promise((resolve) =>setTimeout(resolve, msecs));
-      }
-      await sleep(100);
-    end;
-  end;
-
-//  console.log('drawing chart');
-
-  NumRepos := 0;
-
   divChart.Top := Param_Top;
   divChart.Left := Param_Left;
   divChart.Width := Param_Width;
   divChart.Height := Param_Height;
 
-  asm
+  {$IFNDEF WIN32}
+  asm {
+    const pageSize = 50;
+
+    await sleep(100);
+
     divMain.style.setProperty('background-color', this.Param_Background,'important');
     divMain.style.setProperty('position', 'absolute');
     divMain.style.setProperty('width', '100%');
     divMain.style.setProperty('height', '100%');
 
-    var allrepodata = {};
-    var repodata = {};
-    var repolist = [];
-    var repo = '';
-    var title = '';
+    divChart.classList.replace('d-none','d-flex');
+    divChart.replaceChildren();
 
 
-    // Figure out if any repositories are currently selected
-    var table = pas.Unit1.Form1.tabRepos;
-    var rows = table.getSelectedRows();
+    const addOneDayToDate = (date) => {
+      date.setDate(date.getDate() + 1)
+      return date
+    }
 
-    NumRepos = rows.length;
 
-    // If there are, we can draw a chart
-    if (NumRepos > 0) {
+    const fetchGitHubRepoData = async (githubToken, pageSize, refresh = false) => {
+      const headers = {
+        Authorization: `Bearer ${githubToken}`,
+        Accept: 'application/vnd.github+json',
+      };
 
-      divChart.classList.remove('d-none');
-      divTabulator.classList.replace('h-100','h-50');
+      let page = 1;
+      let repos = [];
+      let hasMorePages = true;
 
-//      if (pas.Unit1.Form1.automate == true) {
-//        divTabulator.classList.replace('h-100','d-none');
+      while (hasMorePages) {
+        const response = await fetch(`https://api.github.com/user/repos?per_page=${pageSize}&page=${page}`, {
+          headers,
+        });
+        const repoData = await response.json();
+        repos = [...repos, ...repoData];
+        hasMorePages = repoData.length === pageSize;
+        page++;
+      }
 
-      // Get data from all of the repositories
+      const updatedRepos = await Promise.all(
+        repos.map(async (repo) => {
+          const [trafficData, discussionsData] = await Promise.all([
+            fetch(`https://api.github.com/repos/${repo.owner.login}/${repo.name}/traffic/views`, {
+              headers,
+            }).then(res => res.json()),
+            fetch('https://api.github.com/graphql', {
+              method: 'POST',
+              headers: {
+                ...headers,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                    query: `
+                  query($owner: String!, $name: String!) {
+                    repository(owner: $owner, name: $name) {
+                      discussions {
+                        totalCount
+                      }
+                    }
+              }
+                `,
+                variables: {
+                  owner: repo.owner.login,
+                  name: repo.name,
+                },
+              }),
+            }).then(res => res.json()),
+          ]);
 
-      for (var i = 0; i < NumRepos; i++) {
-        repo = rows[i].getCell('full_name').getValue();
-        title = rows[i].getCell('name').getValue();
+          return {
+            ...repo,
+            traffic: {
+              views: trafficData.views.map(view => ({
+                timestamp: addOneDayToDate(new Date(view.timestamp)),
+                uniques: view.uniques,
+              })),
+            },
+            updated_at: repo.updated_at,
+            language: repo.language,
+            license: repo.license ? repo.license.name : null,
+            private: repo.private,
+            stargazers_count: repo.stargazers_count || 0,
+            forks_count: repo.forks_count || 0,
+            watchers_count: repo.watchers_count || 0,
+            discussions_count: discussionsData.data.repository.discussions.totalCount,
+            subscribers_count: repo.subscribers_count || 0,
+          };
+        })
+      );
 
-        repodata = JSON.parse(await pas.Unit1.Form1.GetTrafficData(repo));
+      return updatedRepos;
+    };
 
-        for (var trafficdate in repodata) {
-          allrepodata[trafficdate] = { ...allrepodata[trafficdate], ...{[title]:repodata[trafficdate]} }
+
+    const processTrafficData = (repos) => {
+      const processedData = repos.map((repo) => {
+        const { name, full_name, traffic } = repo;
+        let shortName = name.replace(/[^A-Z]/g, '');
+        shortName = shortName.replace(/^TMSWEBC/, '').replace(/^TMSXD/, '');
+        const dates = traffic.views.map((view) => new Date(view.timestamp));
+        const totalViews = traffic.views.reduce(
+          (total, view) => total + view.uniques,
+          0
+        );
+
+        return {
+          name,
+          full_name,
+          shortName,
+          totalViews,
+          minDate: new Date(Math.min(...dates)),
+          maxDate: new Date(Math.max(...dates)),
+          updated_at: repo.updated_at,
+          language: repo.language,
+          license: repo.license,
+          private: repo.private,
+          stargazers_count: repo.stargazers_count || 0,
+          forks_count: repo.forks_count || 0,
+          watchers_count: repo.watchers_count || 0,
+          discussions_count: repo.discussions_count || 0,
+          subscribers_count: repo.subscribers_count || 0,
+          traffic: traffic.views,
+        };
+      });
+
+
+      const sortedData = processedData.sort((a, b) => {
+        if (b.totalViews === a.totalViews) {
+          if (a.shortName === b.shortName) {
+            return a.full_name.localeCompare(b.full_name);
+          }
+          return a.shortName.localeCompare(b.shortName);
+        }
+        return b.totalViews - a.totalViews;
+      });
+
+      return sortedData;
+    };
+
+
+    const getTrafficData = (githubToken, pageSize, refresh = false) => {
+      return new Promise((resolve, reject) => {
+        const request = window.indexedDB.open('trafficData', 1);
+
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          const store = db.createObjectStore('repos', { keyPath: 'full_name' });
+          store.createIndex('name', 'name', { unique: false });
+          store.createIndex('timestamp', 'timestamp', { unique: false });
+          const metaStore = db.createObjectStore('meta', { keyPath: 'id' });
         };
 
-        repolist[i] = title;
-      }
+        request.onsuccess = async (event) => {
+          const db = event.target.result;
+          const transaction = db.transaction(['meta'], 'readonly');
+          const metaStore = transaction.objectStore('meta');
+          const request = metaStore.get('lastUpdated');
+
+          request.onsuccess = async () => {
+            const lastUpdatedObj = request.result;
+            const lastUpdatedTime = lastUpdatedObj ? lastUpdatedObj.timestamp : 0;
+            const currentTime = new Date().getTime();
+
+//            if (refresh || currentTime - lastUpdatedTime > 60 * 60 * 1000) {
+
+            // Data needs to be refreshed or the hour (more specifically the day) has changed
+            if (refresh || (currentTime.getHours !==lastUpdatedTime.getHours)) {
+              // Data needs to be refreshed or is older than 60 minutes
+              const updatedRepos = await fetchGitHubRepoData(githubToken, pageSize, refresh);
+              const processedData = processTrafficData(updatedRepos);
+              const mergedData = await mergeWithCachedData(processedData, db);
+              await storeTrafficData(mergedData, currentTime, db);
+              resolve(mergedData);
+            } else {
+              // Data is fresh, read from IndexedDB
+              const repoData = await readFromIndexedDB(db);
+              resolve(repoData);
+            }
+          };
+        };
+
+        request.onerror = (event) => {
+          reject(event.target.error);
+        };
+      });
+    };
 
 
-      // Now have to reorganize the data for charting, basically populating every combination and
-      // ensuring zero values are present where needed.
+    const mergeWithCachedData = async (processedData, db) => {
+      const transaction = db.transaction(['repos'], 'readonly');
+      const store = transaction.objectStore('repos');
 
+      const mergedData = await Promise.all(
+        processedData.map(async (repo) => {
+          const request = store.get(repo.full_name);
+          const cachedRepo = await new Promise((resolve, reject) => {
+            request.onsuccess = () => {
+              resolve(request.result);
+            };
+            request.onerror = () => {
+              reject(request.error);
+            };
+          });
 
-      // This is the array of dates we're going to use (past 14 days)
-
-      var getDaysArray = function(dtstart, dtend) {
-        for(var arr=[],dt=new Date(dtstart); dt<=new Date(dtend); dt.setDate(dt.getDate()+1)){
-          arr.push(new Date(dt).toISOString().split('T')[0]);
-        }
-        return arr;
-      };
-      var trafficdates = getDaysArray(new Date() - (15 * 24 * 60 * 60 * 1000), new Date() - (-1 * 24 * 60 * 60 * 1000));
-
-
-      // Recreate the data.  Has the benefit of also sorting it
-      // [{date: date, repo1: visitors, repo2: visitors, repo3: visitors}]
-
-      var ChartData = [];
-      for (var i = 0; i < trafficdates.length; i++) {
-        var values = {};
-        for (var j = 0; j < repolist.length; j++) {
-          var visitors = 0;
-          if (allrepodata[trafficdates[i]] !== undefined) {
-            visitors = allrepodata[trafficdates[i]][repolist[j]] || 0;
+          if (cachedRepo) {
+            const mergedTraffic = repo.traffic.map((view) => {
+              const cachedView = cachedRepo.traffic.find(
+                (v) => v.timestamp === view.timestamp
+              );
+              return {
+                ...view,
+                uniques: Math.max(view.uniques, cachedView ? cachedView.uniques : 0),
+              };
+            });
+            return {
+              ...repo,
+              traffic: mergedTraffic,
+            };
           }
-          values = {...values, ...{date:trafficdates[i],[repolist[j]]:visitors} }
-        }
-        ChartData[i] = values;
-      }
+          return repo;
+        })
+      );
 
-      // More data cleaning.  Remove days without data at start
-      for (var i = 0; i < ChartData.length; i++) {
-        var empty = true;
-        Object.keys(ChartData[i]).forEach(function(key) {
-          if ((key !== 'date') && (parseInt(ChartData[i][key]) !== 0)) {
-            empty = false;
+      return mergedData;
+    };
+
+
+    const storeTrafficData = async (processedData, timestamp, db) => {
+      const transaction = db.transaction(['repos', 'meta'], 'readwrite');
+      const store = transaction.objectStore('repos');
+      const metaStore = transaction.objectStore('meta');
+
+      await Promise.all(
+        processedData.map(async (repo) => {
+          await store.put({
+            full_name: repo.full_name,
+            shortName: repo.shortName,
+            name: repo.name,
+            traffic: repo.traffic,
+            totalViews: repo.totalViews,
+            minDate: repo.minDate,
+            maxDate: repo.maxDate,
+            language: repo.language,
+            private: repo.private,
+            discussions_count: repo.discussions_count,
+            stargazers_count: repo.stargazers_count,
+            watchers_count: repo.watchers_count,
+            forks_count: repo.forks_count,
+            subscribers_count: repo.subscribers_count,
+            updated_at: repo.updated_at,
+            license: repo.license,
+          });
+        })
+      );
+
+      await metaStore.put({ id: 'lastUpdated', timestamp });
+    };
+
+
+    const readFromIndexedDB = async (db) => {
+      const transaction = db.transaction(['repos'], 'readonly');
+      const store = transaction.objectStore('repos');
+
+      const repoData = [];
+      const request = store.openCursor();
+
+      return new Promise((resolve, reject) => {
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (cursor) {
+            repoData.push(cursor.value);
+            cursor.continue();
+          } else {
+            resolve(
+              repoData.sort((a, b) => {
+                if (b.totalViews !== a.totalViews) return b.totalViews - a.totalViews;
+                if (a.shortName !== b.shortName) return a.shortName.localeCompare(b.shortName);
+                return a.name.localeCompare(b.name);
+              })
+            );
+          }
+        };
+        request.onerror = () => {
+          reject(request.error);
+        };
+      });
+    };
+
+
+    function chartTraffic(
+      data,
+      container,
+      width,
+      height,
+      margin,
+      colors,
+      fonts = {
+        family: "Arial, sans-serif",
+        axis: "12px",
+        repo: "12px",
+        label: "14px",
+        clip: "25px"
+      },
+      offsets = {
+        countOffset: "15px"
+      },
+      rounding = "5px",
+      animTime = 1500
+      ) {
+
+      // Parse and format dates
+      const parseDate = d3.utcParse("%Y-%m-%dT%H:%M:%SZ");
+      const formatDate = d3.timeFormat("%b%d");
+
+      // Filter the data to include the most recent 14 days
+      const today = new Date();
+      const mostRecentDate = d3.max(data.flatMap(d => d.traffic), d => new Date(d.timestamp));
+      const startDate = d3.timeDay.offset(mostRecentDate, -14);
+      const filteredData = data.map(repo => ({
+        ...repo,
+        traffic: repo.traffic.filter(d => new Date(d.timestamp) >= startDate && new Date(d.timestamp) <= mostRecentDate)
+      }));
+
+      // Create an array of dates for the most recent 14 days
+      // Seems Github does fun things with dates, so let's lop off the last one from the chart.
+      var dates = d3.timeDays(startDate, d3.timeDay.offset(mostRecentDate, 1));
+      dates.pop();
+
+      // Create an object to store the total unique visits per date
+      const totalVisitsPerDate = {};
+      dates.forEach(date => {
+        totalVisitsPerDate[formatDate(date)] = filteredData.reduce((total, repo) => {
+          const visit = repo.traffic.find(t => formatDate(new Date(t.timestamp)) === formatDate( date ));
+          return total + (visit ? visit.uniques : 0);
+        }, 0);
+      });
+
+      // Calculate the total unique visitors for each repository
+      const repoTotals = filteredData.map(repo => ({
+        full_name: repo.full_name,
+        total: repo.traffic.reduce((sum, d) => sum + d.uniques, 0)
+      }));
+
+      // Assign colors to the repositories based on their total unique visitors
+      const repoColors = repoTotals.map(repo => {
+        if (repo.total <= 10) return colors.low;
+        if (repo.total <= 20) return colors.med;
+        return colors.high;
+      });
+
+      // Create a set to store the selected repositories
+      const selectedRepos = new Set();
+
+      // Set up the SVG container
+      const svg = d3.select(container)
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .append("g")
+        .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+      // Set up the x-axis scale and axis
+      const x = d3.scaleBand()
+        .domain(dates)
+        .range([0, width - margin.left - margin.right])
+        .padding(0.1);
+
+      const xAxis = d3.axisBottom(x)
+        .tickFormat(d => formatDate(d));
+
+      // Set up the y-axis scale and axis
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(Object.values(totalVisitsPerDate))])
+        .range([height - margin.top - margin.bottom, 0]);
+
+      // Create the stacked data
+      const stackedData = d3.stack()
+        .keys(filteredData.map(d => d.full_name))
+        .value((d, key) => {
+          const repo = filteredData.find(r => r.full_name === key);
+          const visit = repo.traffic.find(t => formatDate(new Date(t.timestamp)) === formatDate(d.data));
+          return visit ? visit.uniques : 0;
+        })
+      (dates.map(date => ({ data: date })));
+
+      // Draw the stacked bars
+      svg.append("g")
+        .selectAll("g")
+        .data(stackedData)
+        .join("g")
+        .attr("fill", (d, i) => repoColors[i])
+        .selectAll("rect")
+        .data(d => d)
+        .join("rect")
+        .attr("x", d => x(d.data.data))
+        .attr("y", height - margin.top - margin.bottom)
+        .attr("height", 0)
+        .attr("width", x.bandwidth())
+        .attr("rx", rounding)
+        .attr("ry", rounding)
+        .attr("cursor", "pointer") // Set the cursor style to "pointer" for selectable segments
+        .on("click", function(event, d) {
+          const repoName = d3.select(this.parentNode).datum().key;
+          if (selectedRepos.has(repoName)) {
+            selectedRepos.delete(repoName);
+          } else {
+            selectedRepos.add(repoName);
+          }
+          updateColors();
+        })
+        .transition()
+        .duration(animTime)
+        .attr("y", d => y(d[1]) + 1) // Add 1px to the y position to create a vertical gap
+        .attr("height", d => Math.max(y(d[0]) - y(d[1]) - 1,0)) // Subtract 1px from the height to accommodate the gap
+        .each(function(d) {
+          const repoName = d3.select(this.parentNode).datum().key;
+          const repo = filteredData.find(r => r.full_name === repoName);
+          const visitCount = d[1] - d[0];
+          const segmentHeight = Math.max(y(d[0]) - y(d[1]) - 1,0); // Subtract 1px from the segment height to account for the gap
+
+          // Add tooltip
+          d3.select(this)
+            .append("title")
+            .text(`${repo.name}: ${visitCount} unique visitors`);
+
+          // Add label if the segment height is greater than or equal to the clip threshold
+          if (segmentHeight >= parseInt(fonts.clip)) {
+            const label = d3.select(this.parentNode)
+              .append("text")
+              .attr("x", x(d.data.data) + x.bandwidth() / 2)
+              .attr("y", height - margin.top - margin.bottom)
+              .attr("text-anchor", "middle")
+              .attr("dy", "0.35em")
+              .style("fill", colors.label)
+              .style("font-size", fonts.label)
+              .style("font-family", fonts.family)
+              .style("pointer-events", "none")
+              .style("opacity", 0)
+              .text(repo.shortName);
+
+            label.transition()
+              .duration(animTime)
+              .attr("y", y(d[1]) + segmentHeight / 2 + 1) // Add 1px to the y position of the label to account for the gap
+              .style("opacity", 1);
           }
         });
-        if ((empty == true) && (i == 0)) {
-//          console.log('Removing empty starting date: '+ChartData[i].date);
-          ChartData.splice(i,1);
-          i = i - 1;
-        }
-      }
-      // More data cleaning.  Remove days without data at end
-      for (var i = ChartData.length - 1; i >= 0; i--) {
-        var empty = true;
-        Object.keys(ChartData[i]).forEach(function(key) {
-          if ((key !== 'date') && (parseInt(ChartData[i][key]) !== 0)) {
-            empty = false;
-          }
-        });
-        if ((empty == true) && (i == ChartData.length - 1)) {
-//          console.log('Removing empty ending date: '+ChartData[i].date);
-          ChartData.splice(i,1);
-          i = i - 1;
-        }
-        if ((empty == true) && (i == ChartData.length - 1)) {
-//          console.log('Removing empty ending date: '+ChartData[i].date);
-          ChartData.splice(i,1);
-          i = i - 1;
-        }
+
+      // Update the colors of the segments based on the selection
+      function updateColors() {
+        svg.selectAll("rect")
+          .attr("fill", function(d) {
+            const repoName = d3.select(this.parentNode).datum().key;
+            if (selectedRepos.has(repoName)) {
+              return colors.selected;
+            } else {
+              const repoIndex = filteredData.findIndex(r => r.full_name === repoName);
+              return repoColors[repoIndex];
+            }
+          });
       }
 
-      table.blockRedraw();
-      var r = table.getSelectedRows();
-      for (var i = 0; i < r.length; i++) {
-        r[i].getCell('pageviews').setValue(0);
-      }
-      for (var i = 0; i < ChartData.length; i++) {
-        var list = ChartData[i];
-        for (var rep in list) {
-          var r = table.searchRows('name','=',rep);
-          if (r.length == 1) {
-            var c = r[0].getCell('pageviews').getValue();
-            r[0].getCell('pageviews').setValue(c + list[rep]);
-          }
-        }
-      }
-      table.restoreRedraw();
+      // Draw the x-axis
+      svg.append("g")
+        .attr("transform", `translate(0, ${height - margin.top - margin.bottom})`)
+        .call(xAxis)
+        .selectAll("text")
+        .style("text-anchor", "middle")
+        .style("fill", colors.axisText)
+        .style("font-size", fonts.axis)
+        .style("font-family", fonts.family);
 
-//        var keysSorted = Object.keys(list).sort(function(a,b){return list[a]-list[b]})
-//        console.log(keysSorted);
-//      }
+      svg.selectAll(".tick line")
+        .style("stroke", colors.axisLines);
 
-//        console.log(trafficdates);
-//        console.log(allrepodata);
-//        console.log(ChartData);
-//        console.log(repolist);
+      svg.select(".domain")
+        .style("stroke", colors.axisLines);
 
+      // Add total unique visits below each date
+      svg.append("g")
+        .attr("transform", `translate(0, ${height - margin.top - margin.bottom + parseInt(offsets.countOffset)})`)
+        .selectAll("text")
+        .data(dates)
+        .join("text")
+        .attr("x", d => x(d) + x.bandwidth() / 2)
+        .attr("y", 0)
+        .attr("text-anchor", "middle")
+        .style("fill", colors.axisText)
+        .style("font-size", fonts.axis)
+        .style("font-family", fonts.family)
+        .text(d => totalVisitsPerDate[formatDate(d)]);
 
+      // Set the background color of the container div
+//      d3.select(container)
+//        .style("background-color", colors.bg);
 
-      // Let's make a D3 Stacked Bar Chart!  This is modified from the following links.
-      // One of the main changes is to update the code from D3 v3 to D3 v4
-      // https://www.educative.io/answers/how-to-create-stacked-bar-chart-using-d3
-      // https://observablehq.com/@stuartathompson/a-step-by-step-guide-to-the-d3-v4-stacked-bar-chart
-
-        var margin = 0;
-//        if (pas.Unit1.Form1.automate) {
-//          margin = 2;
-////          divChart.style.setProperty('background-color', bgcolor,'important');
-////          divMain.style.setProperty('background-color', bgcolor,'important');
-////          divChart.style.setProperty('border-radius', '6px','important');
-////          divMain.style.setProperty('border-radius', '6px','important');
-////          document.body.style.setProperty('background-color', bgcolor,'important');
-//        }
-        var width = pas.Unit1.Form1.Param_Width - (margin * 6);
-        var height = pas.Unit1.Form1.Param_Height - (margin * 6);
-        var colors = ["#C9D6DF", "#F7EECF", "#E3E1B2", "#F9CAC8"];
-        var parseDate = d3.utcParse("%Y-%m-%d");
-        var formatDate = d3.timeFormat("%b-%d");           // Jan-01
-        var ParamX = pas.Unit1.Form1.Param_Left;
-        var ParamY = pas.Unit1.Form1.Param_Top;
-
-        // Replace chart whenever we're here    
-        divChart.replaceChildren();
-
-        // Chart is an SVG image created in the divChart TWebHTMLDiv component
-        // Here we're positioning it with a bit of margin
-        var svg = d3.select("#divChart")
-                    .append("svg")
-                    .attr("width", '100%')
-                    .attr("height", '100%')
-
-//                    .attr("width", width + (margin * 6) + ParamX)
-//                    .attr("height", height + (margin * 8) + ParamY)
-//                    .attr("transform", "translate("+margin+","+margin+")")
-                    .append("g")
-                    .attr("width", '100%')
-                    .attr("height", '100%')
-                    .attr("transform", "translate(12,24)");
+//      return {
+//        svg,
+//        x,
+//        xAxis,
+//        y
+//      };
+    }
 
 
-        // This is the insanity needed to create the stacked portion of the bar chart
-        var stack = d3.stack().keys(repolist)(ChartData);
+    getTrafficData(this.Param_GitHubToken, pageSize, false)
+      .then(processedData => {
 
-        stack.map((d,i) => {
-          d.map(d => {
-            d.key = repolist[i]
-            return d
-          })
-          return d
-        });
-//       console.log(stack);
+        // Use the processedData for further processing or rendering
+        console.log(processedData);
 
-        // Search the data to figure out what the largest possible y value will be
-        var yMax = d3.max(ChartData, d => {
-          var val = 0
-          for(var k of repolist){
-            val += d[k]
-          }
-          return val
-        });
-//        console.log(yMax);
+        const container = document.getElementById("divChart");
+        const width = this.Param_Width;
+        const height = this.Param_Height;
+        const margin = { top: 10, right: 10, bottom: 50, left: 10 };
+        const colors = {
+          bg: this.Param_Background,
+          high: "#ff0000", // Color for repositories with high popularity
+          med: "#800000", // Color for repositories with medium popularity
+          low: "#400000", // Color for repositories with low popularity
+          selected: "green", // Color for selected repositories
+          axisText: "#999999", // Color for axis labels and total unique visits
+          axisLines: "#cccccc", // Color for axis lines
+          label: "white" // Color for segment labels
+        };
+        const fonts = {
+          family: "Cairo, sans-serif", // Font family for all text elements
+          axis: "10px", // Font size for axis labels
+          repo: "10px", // Font size for repository names (unused)
+          label: "10px", // Font size for segment labels
+          clip: "20px" // Minimum height threshold for displaying segment labels
+        };
+        const offsets = {
+          countOffset: "30px" // Vertical offset between date labels and total unique visits
+        };
+        const rounding = "5px"; // Amount of rounding for bar segments
+        const animTime = 1500; // Duration of the animation in milliseconds
 
+        chartTraffic(
+          processedData,
+          container,
+          width,
+          height,
+          margin,
+          colors,
+          fonts,
+          offsets,
+          rounding,
+          animTime
+        );
+      })
+      .catch(error => {
+        console.error('Error fetching traffic data:', error);
+      });
 
-        // Deal with the X-Axis
-        var x = d3.scaleLinear()
-                  .domain([-0.5,ChartData.length-0.5])
-                  .range([0,width-50]);
-        var xAxis = d3.axisBottom(x)
-                      .ticks(ChartData.length)
-                      .tickFormat((d, i) => formatDate(parseDate(trafficdates[d])));
-
-
-//        svg.append('text')
-//           .attr('x', width/2)
-//           .attr('y', height + 30)
-//           .attr('text-anchor', 'middle')
-//           .text('UTC Date')
-//           .style('font-size', '12px');
-
-
-
-        // Deal with the Y-Axis
-        var y = d3.scaleLinear().domain([0, yMax]).range([height - ParamY-45, -20])
-        var yAxis = d3.axisLeft(y);
-
-//        if (pas.Unit1.Form1.automate == false) {
-//          svg.append('text')
-//             .attr('text-anchor', 'middle')
-//             .attr('transform', 'translate(-8,'+ height/2 + ')rotate(-90)')
-//             .text('Unique Visitors')
-//             .style('font-size', '12px');
-//        }
-
-
-        // Draw the bar charts
-        svg.selectAll('g')
-           .data(stack).enter()
-           .append('g')
-           .selectAll('rect')
-           .data(d => d)
-           .enter()
-           .each(function(p,j) {
-             d3.select(this)
-               .append('rect')
-               .on("click", function(d) {
-                 if (!pas.Unit1.Form1.Highlight.includes('['+p.key+']')) {
-                   pas.Unit1.Form1.Highlight += '['+p.key+']';
-                 } else {
-                   pas.Unit1.Form1.Highlight = pas.Unit1.Form1.Highlight.replace('['+p.key+']','');
-                 }
-                 pas.Unit1.Form1.UpdateChart();
-               })
-               .attr('x', (d,i) => x(j) - (width/ChartData.length/2))
-               .attr('y', d => y(d[1]))
-               .attr('width', (width / (ChartData.length+1.75)))
-               .attr('height', d => {
-                 return y(d[0])-y(d[1])
-               })
-               .attr('fill', function(){
-                 // Highlight = Dark Green
-                 if (pas.Unit1.Form1.Highlight.includes('['+p.key+']')) {
-                   return '#080';
-                 } else {
-                   // Get count for past 14 days
-                   var pv = pas.Unit1.Form1.tabRepos.searchRows('name','=',p.key)[0].getCell('pageviews').getValue();
-                   // Average > 3 per day = Red
-                   if (pv >= 42) {return '#F00';}
-                   // Average >1 1 per day = Maroon
-                   else if (pv >= 14) {return '#800';}
-                   // Average < 1 per day = Darker Red
-                   else {return '#500';}
-                 }
-               })
-               .attr('stroke', 'black')
-               .attr('stroke-width', 1)
-               .append("title")
-               .text(function(d,i) {
-                 return d.key+' - '+d.data[d.key]
-               });
-             d3.select(this)
-               .append("text")
-               .attr('x', (d,i) => x(j) - 2)
-               .attr('y', d => y(d[1])+(y(d[0])-y(d[1]))/2+(parseInt(pas.Unit1.Form1.Param_FontSize) / 3))
-               .attr('width', (width/(ChartData.length+2)))
-               .attr('height', d => {
-                 return y(d[0])-y(d[1])
-               })
-               .attr("text-anchor", "middle")
-               .attr("dominant-baseliner", "middle")
-               .attr("pointer-events", "none")
-               .style("font-size", parseInt(pas.Unit1.Form1.Param_FontSize)+"px")
-               .attr("fill", "white")
-               .text( d => {
-                 // Too small to fit?
-                 if (( y(d[0])-y(d[1]) ) <= pas.Unit1.Form1.Param_FontSize) {
-                  return ''
-                 }
-                 else {
-                   return d.key.split('-').pop().replace(/[^A-Z]+/g, "")
-                 }
-               })
-             });
-
-
-//        if (pas.Unit1.Form1.automate == false) {
-//          svg.append('g')
-//            .attr("transform", "translate("+margin * 5+",0)")
-//            .call(yAxis);
-//
-//          svg.append('g')
-//            .attr("transform", "translate(0,"+(height)+")")
-//            .call(xAxis);
-//        }
-
-        svg.selectAll("line").style("stroke", "#6c757d");  // Bootsrap secondary color
-        svg.selectAll("path").style("stroke", "#6c757d");
-
-        svg.selectAll("text").style("stroke", "white");
-        svg.selectAll("text").style("fill", "white");
-        svg.selectAll("text").style("stroke-width", "0.2");
-     }
-  end;
+  } end;
+  {$ENDIF}
 
   divChart.Visible := True;
 
-  if (NumRepos = 0) then
-  begin
-    divChart.ElementHandle.classList.add('d-none');
-    divTabulator.ElementHandle.classList.replace('h-50','h-100');
-  end
+//  if (NumRepos = 0) then
+//  begin
+//    divChart.ElementHandle.classList.add('d-none');
+//    divTabulator.ElementHandle.classList.replace('h-50','h-100');
+//  end
 end;
 
 procedure TForm1.UpdateTable;
@@ -694,6 +908,7 @@ begin
     });
   end;
 end;
+
 
 procedure TForm1.WebEdit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
@@ -826,6 +1041,12 @@ begin
 
   tabReposBuilt := False;
   asm
+
+    async function sleep(msecs) {
+      return new Promise((resolve) =>setTimeout(resolve, msecs));
+    }
+    window.sleep = sleep;
+
     var headerMenu = [
       {
         label:"Select All",
@@ -888,7 +1109,7 @@ begin
     this.tabRepos.on("rowSelectionChanged", function(data, rows){
       //rows - array of row components for the selected rows in order of selection
       //data - array of data objects for the selected rows in order of selection
-      pas.Unit1.Form1.UpdateChart();
+//      pas.Unit1.Form1.UpdateChart();
     });
   end;
 
@@ -904,7 +1125,7 @@ begin
 
   Param_Top := 0;
   Param_Left := 0;
-  Param_Width := Form1.Width;
+  Param_Width := Form1.Width - 125;
   Param_Height := (Form1.Height div 2);
 
   Param_FontSize := 10;
@@ -971,8 +1192,8 @@ begin
     Form1.ElementClassName := '';
     divMain.ElementClassName := '';
     divChart.ElementClassName := 'overflow-hidden order-1';
-    await(RefreshTableData);
-    await(UpdateTable);
+//    await(RefreshTableData);
+//    await(UpdateTable);
     UpdateChart;
   end
   else
@@ -1004,7 +1225,7 @@ begin
   begin
     await(RefreshTableData);
     await(UpdateTable);
-    UpdateChart;
+//    UpdateChart;
   end;
 end;
 

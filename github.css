@@ -10,6 +10,10 @@ html, body {
   left: 10px !important;
 }
 
+#divTabulator {
+  max-height: 420px;
+}
+
 #divChart > div.None {
   border-radius: 5px;
   width: 30px;
