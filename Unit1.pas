@@ -167,6 +167,7 @@ begin
 
   {$IFNDEF WIN32}
   asm {
+    await sleep(100);
     pas.Unit1.Form1.NextCalendar = new Date().getUTCDay()
   } end;
   {$ENDIF}
@@ -177,9 +178,9 @@ begin
     begin
       {$IFNDEF WIN32}
       asm {
-        divChart.addEventListener('click', () =>
-          window.open(window.location.href, '_blank').focus()
-        );
+//        divChart.addEventListener('click', () =>
+//          window.open(window.location.href, '_blank').focus()
+//        );
       } end;
       {$ENDIF}
     end;
@@ -198,100 +199,162 @@ begin
 
 //              contributionsCollection(from: "${start_date}", to: "${finish_date}") {
 
-      async function Get_GitHub_Data(GITHUB_ACCOUNT, GITHUB_TOKEN, start_date, finish_date) {
-
-        const QUERY = `
-          query {
-            user(login: "${GITHUB_ACCOUNT}") {
-              contributionsCollection {
-                contributionCalendar {
-                  totalContributions
-                  weeks {
-                    contributionDays {
-                      date
-                      contributionCount
-                    }
-                  }
-                }
+async function Get_GitHub_Data(GITHUB_ACCOUNT, GITHUB_TOKEN, start_date, finish_date) {
+  const QUERY = `
+    query {
+      user(login: "${GITHUB_ACCOUNT}") {
+        contributionsCollection {
+          contributionCalendar {
+            totalContributions
+            weeks {
+              contributionDays {
+                date
+                contributionCount
               }
             }
           }
-        `;
+        }
+      }
+    }
+  `;
 
-//        console.log('Query: ', QUERY);
+  const options = {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `bearer ${GITHUB_TOKEN}`
+    },
+    body: JSON.stringify({ query: QUERY })
+  };
 
-        const options = {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `bearer ${GITHUB_TOKEN}`
-          },
-          body: JSON.stringify({ query: QUERY })
-        };
-
-//        console.log('Options: ', options);
-
-        return fetch('https://api.github.com/graphql', options)
-          .then(res => {
-//            console.log('Response: ', res);
-            return res.json();
-          })
-          .then(data => {
-//            console.log('Data: ', data);
-            let contributions = [];
-            data.data.user.contributionsCollection.contributionCalendar.weeks.forEach(week => {
-              week.contributionDays.forEach(day => {
-                contributions.push({
-                  date: day.date,
-                  count: day.contributionCount
-                });
-              });
-            });
-            return contributions;
-          })
-          .catch(err => {
-            console.log(err);
+  return fetch('https://api.github.com/graphql', options)
+    .then(res => res.json())
+    .then(data => {
+      let contributions = [];
+      data.data.user.contributionsCollection.contributionCalendar.weeks.forEach((week, weekIndex) => {
+        week.contributionDays.forEach(day => {
+          contributions.push({
+            date: day.date,
+            count: day.contributionCount,
+            weekNumber: weekIndex + 1
           });
-      }
+        });
+      });
+      return contributions;
+    })
+    .catch(err => {
+      console.log(err);
+    });
+}
 
-      var calendardata = (await Get_GitHub_Data(
-        this.Param_Calendar,
-        this.Param_GitHubToken,
-        new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toJSON(),
-        new Date().toJSON()
-      ));
+var calendardata = await Get_GitHub_Data(
+  this.Param_Calendar,
+  this.Param_GitHubToken,
+  new Date(new Date().setFullYear(new Date().getFullYear() - 1)).toJSON(),
+  new Date().toJSON()
+);
 
-      var i = 0;
-      divChart.replaceChildren();
-      var started = false;
-      while (i < calendardata.length) {
-        if ((started == false) && (new Date(calendardata[i].date).getUTCDay() == 0)) {
-          started = true;
-        }
+var divChart = document.getElementById('divChart');
+divChart.replaceChildren();
 
-        if (started == true) {
-//        console.log(calendardata[i].date+' '+calendardata[i].count);
-          var cal = document.createElement('div');
-          if (calendardata[i].count == 0) {
-            cal.classList.add('None');
-          } else if (calendardata[i].count < 6) {
-            cal.classList.add('Low');
-          } else if (calendardata[i].count < 11) {
-            cal.classList.add('Medium');
-          } else {
-            cal.classList.add('High');
-            cal.innerHTML = calendardata[i].count;
-          }
-          if (new Date(calendardata[i].date).getUTCDate() == 1) {
-            cal.classList.add('First');
-          }
+var started = false;
+var totalContributions = 0;
+var daysWithContributions = 0;
+var busiestDay = { date: '', count: 0 };
+var currentStreak = 0;
+var longestStreak = 0;
+var busiestWeek = 0;
+var busiestWeekContributions = 0;
 
-          cal.setAttribute('title',calendardata[i].date+': '+calendardata[i].count);
-          divChart.appendChild(cal);
-        }
+// Calculate weekday counts
+const weekdayCounts = new Array(7).fill(0);
+calendardata.forEach(day => {
+  const weekday = new Date(day.date).getDay();
+  weekdayCounts[weekday] += day.count;
+});
+const mostActiveDayIndex = weekdayCounts.indexOf(Math.max(...weekdayCounts));
+const mostActiveDay = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][mostActiveDayIndex];
 
-        i++;
-      }
+// Calculate longest streak
+let currentStreakLength = 0;
+calendardata.forEach(day => {
+  if (day.count > 0) {
+    currentStreakLength++;
+    longestStreak = Math.max(longestStreak, currentStreakLength);
+  } else {
+    currentStreakLength = 0;
+  }
+});
+
+// Calculate busiest week
+calendardata.forEach(day => {
+  if (day.count > busiestWeekContributions) {
+    busiestWeek = day.weekNumber;
+    busiestWeekContributions = day.count;
+  }
+});
+
+for (let i = 0; i < calendardata.length; i++) {
+  if ((started == false) && (new Date(calendardata[i].date).getUTCDay() == 0)) {
+    started = true;
+  }
+
+  if (started == true) {
+    var cal = document.createElement('div');
+    if (calendardata[i].count == 0) {
+      cal.classList.add('None');
+    } else if (calendardata[i].count < 6) {
+      cal.classList.add('Low');
+    } else if (calendardata[i].count < 11) {
+      cal.classList.add('Medium');
+    } else {
+      cal.classList.add('High');
+      cal.innerHTML = calendardata[i].count;
+    }
+    if (new Date(calendardata[i].date).getUTCDate() == 1) {
+      cal.classList.add('First');
+    }
+
+    cal.setAttribute('title', `Week ${calendardata[i].weekNumber}: ${calendardata[i].date} - ${calendardata[i].count} contributions`);
+    divChart.appendChild(cal);
+
+    // Update summary values
+    totalContributions += calendardata[i].count;
+    if (calendardata[i].count > 0) {
+      daysWithContributions++;
+      currentStreak++;
+    } else {
+      currentStreak = 0;
+    }
+    if (calendardata[i].count > busiestDay.count) {
+      busiestDay = { date: calendardata[i].date, count: calendardata[i].count };
+    }
+  }
+}
+
+// Calculate and display summary information
+const totalDays = calendardata.length;
+const dutyCycle = ((daysWithContributions / totalDays) * 100).toFixed(1);
+const busiestDayStr = `${new Date(busiestDay.date).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })} (${busiestDay.count}c)`;
+const busiestWeekdayStr = `${mostActiveDay} (${weekdayCounts[mostActiveDayIndex]}c)`;
+const longestStreakStr = `${longestStreak}`;
+const busiestWeekStr = `W${busiestWeek}`;
+
+const summaryElement = document.createElement('div');
+summaryElement.id = 'calendar-summary';
+summaryElement.innerHTML = `
+  <div class="calendar-summary">
+    <div class="calendar-label">C:</div><div class="calendar-value">${totalContributions}</div>
+    <div class="calendar-label">D:</div><div class="calendar-value">${dutyCycle}%</div>
+    <div class="calendar-label">Day:</div><div class="calendar-value">${busiestDayStr}</div>
+    <div class="calendar-label">Wd:</div><div class="calendar-value">${busiestWeekdayStr}</div>
+    <div class="calendar-label">Wk:</div><div class="calendar-value">${busiestWeekStr}</div>
+    <div class="calendar-label">Streak:</div><div class="calendar-value">${currentStreak}d</div>
+    <div class="calendar-label">Record:</div><div class="calendar-value">${longestStreakStr}d</div>
+  </div>
+`;
+
+divChart.parentNode.appendChild(summaryElement);
     }  end;
     {$ENDIF}
   end;
@@ -598,211 +661,236 @@ begin
     };
 
 
-    function chartTraffic(
-      data,
-      container,
-      width,
-      height,
-      margin,
-      colors,
-      fonts = {
-        family: "Arial, sans-serif",
-        axis: "12px",
-        repo: "12px",
-        label: "14px",
-        clip: "25px"
-      },
-      offsets = {
-        countOffset: "15px"
-      },
-      rounding = "5px",
-      animTime = 1500
-      ) {
+function chartTraffic(
+  data,
+  container,
+  width,
+  height,
+  margin,
+  colors,
+  fonts = {
+    family: "Arial, sans-serif",
+    axis: "12px",
+    repo: "12px",
+    label: "14px",
+    clip: "25px",
+    percent: "14px"
+  },
+  offsets = {
+    countOffset: "15px",
+    pctLeft: "10px",
+    pctTop: "10px"
+  },
+  rounding = "5px",
+  animTime = 1500
+) {
+  // Parse and format dates
+  const parseDate = d3.utcParse("%Y-%m-%dT%H:%M:%SZ");
+  const formatDate = d3.timeFormat("%b%d");
 
-      // Parse and format dates
-      const parseDate = d3.utcParse("%Y-%m-%dT%H:%M:%SZ");
-      const formatDate = d3.timeFormat("%b%d");
+  // Filter the data to include the most recent 14 days
+  const today = new Date();
+  const mostRecentDate = d3.max(data.flatMap(d => d.traffic), d => new Date(d.timestamp));
+  const startDate = d3.timeDay.offset(mostRecentDate, -14);
+  const filteredData = data.map(repo => ({
+    ...repo,
+    traffic: repo.traffic.filter(d => new Date(d.timestamp) >= startDate && new Date(d.timestamp) <= mostRecentDate)
+  }));
 
-      // Filter the data to include the most recent 14 days
-      const today = new Date();
-      const mostRecentDate = d3.max(data.flatMap(d => d.traffic), d => new Date(d.timestamp));
-      const startDate = d3.timeDay.offset(mostRecentDate, -14);
-      const filteredData = data.map(repo => ({
-        ...repo,
-        traffic: repo.traffic.filter(d => new Date(d.timestamp) >= startDate && new Date(d.timestamp) <= mostRecentDate)
-      }));
+  // Create an array of dates for the most recent 14 days
+  // Seems Github does fun things with dates, so let's lop off the last one from the chart.
+  var dates = d3.timeDays(startDate, d3.timeDay.offset(mostRecentDate, 1));
+  dates.pop();
 
-      // Create an array of dates for the most recent 14 days
-      // Seems Github does fun things with dates, so let's lop off the last one from the chart.
-      var dates = d3.timeDays(startDate, d3.timeDay.offset(mostRecentDate, 1));
-      dates.pop();
+  // Create an object to store the total unique visits per date
+  const totalVisitsPerDate = {};
+  dates.forEach(date => {
+    totalVisitsPerDate[formatDate(date)] = filteredData.reduce((total, repo) => {
+      const visit = repo.traffic.find(t => formatDate(new Date(t.timestamp)) === formatDate(date));
+      return total + (visit ? visit.uniques : 0);
+    }, 0);
+  });
 
-      // Create an object to store the total unique visits per date
-      const totalVisitsPerDate = {};
-      dates.forEach(date => {
-        totalVisitsPerDate[formatDate(date)] = filteredData.reduce((total, repo) => {
-          const visit = repo.traffic.find(t => formatDate(new Date(t.timestamp)) === formatDate( date ));
-          return total + (visit ? visit.uniques : 0);
-        }, 0);
+  // Calculate the total unique visitors for each repository
+  const repoTotals = filteredData.map(repo => ({
+    full_name: repo.full_name,
+    total: repo.traffic.reduce((sum, d) => sum + d.uniques, 0)
+  }));
+
+  // Assign colors to the repositories based on their total unique visitors
+  const repoColors = repoTotals.map(repo => {
+    if (repo.total <= 10) return colors.low;
+    if (repo.total <= 20) return colors.med;
+    return colors.high;
+  });
+
+  // Create a set to store the selected repositories
+  const selectedRepos = new Set();
+
+  container.replaceChildren();
+
+  // Set up the SVG container
+  const svg = d3.select(container)
+    .append("svg")
+    .attr("width", width)
+    .attr("height", height)
+    .append("g")
+    .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+  // Set up the x-axis scale and axis
+  const x = d3.scaleBand()
+    .domain(dates)
+    .range([0, width - margin.left - margin.right])
+    .padding(0.1);
+
+  const xAxis = d3.axisBottom(x)
+    .tickFormat(d => formatDate(d));
+
+  // Set up the y-axis scale and axis
+  const y = d3.scaleLinear()
+    .domain([0, d3.max(Object.values(totalVisitsPerDate))])
+    .range([height - margin.top - margin.bottom, 0]);
+
+  // Update the colors of the segments based on the selection
+  function updateColors() {
+    const selectedRepoTotals = [...selectedRepos].map(repoName => repoTotals.find(r => r.full_name === repoName));
+    const totalSelectedVisits = selectedRepoTotals.reduce((total, repo) => total + repo.total, 0);
+    const percentage = totalSelectedVisits / totalUniqueVisits * 100;
+
+    svg.selectAll("rect")
+      .attr("fill", function(d) {
+        const repoName = d3.select(this.parentNode).datum().key;
+        if (selectedRepos.has(repoName)) {
+          return colors.selected;
+        } else {
+          const repoIndex = filteredData.findIndex(r => r.full_name === repoName);
+          return repoColors[repoIndex];
+        }
       });
 
-      // Calculate the total unique visitors for each repository
-      const repoTotals = filteredData.map(repo => ({
-        full_name: repo.full_name,
-        total: repo.traffic.reduce((sum, d) => sum + d.uniques, 0)
-      }));
+    if (selectedRepos.size > 0) {
+      percentageText.text(`${percentage.toFixed(1)}%`);
+    } else {
+      percentageText.text("");
+    }
+  }
 
-      // Assign colors to the repositories based on their total unique visitors
-      const repoColors = repoTotals.map(repo => {
-        if (repo.total <= 10) return colors.low;
-        if (repo.total <= 20) return colors.med;
-        return colors.high;
-      });
+  // Add a new object to store the total unique visits across all repositories
+  const totalUniqueVisits = repoTotals.reduce((total, repo) => total + repo.total, 0);
 
-      // Create a set to store the selected repositories
-      const selectedRepos = new Set();
+  // Create a selection to hold the percentage text element
+  let percentageText = svg.append("text")
+    .attr("x", parseInt(offsets.percentLeft))
+    .attr("y", parseInt(offsets.percentTop))
+    .style("font-size", fonts.percent)
+    .style("font-family", fonts.family)
+    .style("fill", colors.percent)
+    .style("pointer-events", "none")
+    .style("text-shadow", "0px 0px 10px rgba(255, 255, 255, 1)")
+    .text("");
 
-      // Set up the SVG container
-      const svg = d3.select(container)
-        .append("svg")
-        .attr("width", width)
-        .attr("height", height)
-        .append("g")
-        .attr("transform", `translate(${margin.left}, ${margin.top})`);
+  // Create the stacked data
+  const stackedData = d3.stack()
+    .keys(filteredData.map(d => d.full_name))
+    .value((d, key) => {
+      const repo = filteredData.find(r => r.full_name === key);
+      const visit = repo.traffic.find(t => formatDate(new Date(t.timestamp)) === formatDate(d.data));
+      return visit ? visit.uniques : 0;
+    })
+    (dates.map(date => ({ data: date })));
 
-      // Set up the x-axis scale and axis
-      const x = d3.scaleBand()
-        .domain(dates)
-        .range([0, width - margin.left - margin.right])
-        .padding(0.1);
-
-      const xAxis = d3.axisBottom(x)
-        .tickFormat(d => formatDate(d));
-
-      // Set up the y-axis scale and axis
-      const y = d3.scaleLinear()
-        .domain([0, d3.max(Object.values(totalVisitsPerDate))])
-        .range([height - margin.top - margin.bottom, 0]);
-
-      // Create the stacked data
-      const stackedData = d3.stack()
-        .keys(filteredData.map(d => d.full_name))
-        .value((d, key) => {
-          const repo = filteredData.find(r => r.full_name === key);
-          const visit = repo.traffic.find(t => formatDate(new Date(t.timestamp)) === formatDate(d.data));
-          return visit ? visit.uniques : 0;
-        })
-      (dates.map(date => ({ data: date })));
-
-      // Draw the stacked bars
-      svg.append("g")
-        .selectAll("g")
-        .data(stackedData)
-        .join("g")
-        .attr("fill", (d, i) => repoColors[i])
-        .selectAll("rect")
-        .data(d => d)
-        .join("rect")
-        .attr("x", d => x(d.data.data))
-        .attr("y", height - margin.top - margin.bottom)
-        .attr("height", 0)
-        .attr("width", x.bandwidth())
-        .attr("rx", rounding)
-        .attr("ry", rounding)
-        .attr("cursor", "pointer") // Set the cursor style to "pointer" for selectable segments
-        .on("click", function(event, d) {
-          const repoName = d3.select(this.parentNode).datum().key;
-          if (selectedRepos.has(repoName)) {
-            selectedRepos.delete(repoName);
-          } else {
-            selectedRepos.add(repoName);
-          }
-          updateColors();
-        })
-        .transition()
-        .duration(animTime)
-        .attr("y", d => y(d[1]) + 1) // Add 1px to the y position to create a vertical gap
-        .attr("height", d => Math.max(y(d[0]) - y(d[1]) - 1,0)) // Subtract 1px from the height to accommodate the gap
-        .each(function(d) {
-          const repoName = d3.select(this.parentNode).datum().key;
-          const repo = filteredData.find(r => r.full_name === repoName);
-          const visitCount = d[1] - d[0];
-          const segmentHeight = Math.max(y(d[0]) - y(d[1]) - 1,0); // Subtract 1px from the segment height to account for the gap
-
-          // Add tooltip
-          d3.select(this)
-            .append("title")
-            .text(`${repo.name}: ${visitCount} unique visitors`);
-
-          // Add label if the segment height is greater than or equal to the clip threshold
-          if (segmentHeight >= parseInt(fonts.clip)) {
-            const label = d3.select(this.parentNode)
-              .append("text")
-              .attr("x", x(d.data.data) + x.bandwidth() / 2)
-              .attr("y", height - margin.top - margin.bottom)
-              .attr("text-anchor", "middle")
-              .attr("dy", "0.35em")
-              .style("fill", colors.label)
-              .style("font-size", fonts.label)
-              .style("font-family", fonts.family)
-              .style("pointer-events", "none")
-              .style("opacity", 0)
-              .text(repo.shortName);
-
-            label.transition()
-              .duration(animTime)
-              .attr("y", y(d[1]) + segmentHeight / 2 + 1) // Add 1px to the y position of the label to account for the gap
-              .style("opacity", 1);
-          }
-        });
-
-      // Update the colors of the segments based on the selection
-      function updateColors() {
-        svg.selectAll("rect")
-          .attr("fill", function(d) {
-            const repoName = d3.select(this.parentNode).datum().key;
-            if (selectedRepos.has(repoName)) {
-              return colors.selected;
-            } else {
-              const repoIndex = filteredData.findIndex(r => r.full_name === repoName);
-              return repoColors[repoIndex];
-            }
-          });
+  // Draw the stacked bars
+  svg.append("g")
+    .selectAll("g")
+    .data(stackedData)
+    .join("g")
+    .attr("fill", (d, i) => repoColors[i])
+    .selectAll("rect")
+    .data(d => d)
+    .join("rect")
+    .attr("x", d => x(d.data.data))
+    .attr("y", height - margin.top - margin.bottom)
+    .attr("height", 0)
+    .attr("width", x.bandwidth())
+    .attr("rx", rounding)
+    .attr("ry", rounding)
+    .attr("cursor", "pointer")
+    .on("click", function(event, d) {
+      const repoName = d3.select(this.parentNode).datum().key;
+      if (selectedRepos.has(repoName)) {
+        selectedRepos.delete(repoName);
+      } else {
+        selectedRepos.add(repoName);
       }
+      updateColors();
+    })
+    .transition()
+    .duration(animTime)
+    .attr("y", d => y(d[1]) + 1)
+    .attr("height", d => Math.max(y(d[0]) - y(d[1]) - 1, 0))
+    .each(function(d) {
+      const repoName = d3.select(this.parentNode).datum().key;
+      const repo = filteredData.find(r => r.full_name === repoName);
+      const visitCount = d[1] - d[0];
+      const segmentHeight = Math.max(y(d[0]) - y(d[1]) - 1, 0);
 
-      // Draw the x-axis
-      svg.append("g")
-        .attr("transform", `translate(0, ${height - margin.top - margin.bottom})`)
-        .call(xAxis)
-        .selectAll("text")
-        .style("text-anchor", "middle")
-        .style("fill", colors.axisText)
-        .style("font-size", fonts.axis)
-        .style("font-family", fonts.family);
+      // Add tooltip
+      d3.select(this)
+        .append("title")
+        .text(`${repo.name}: ${visitCount} unique visitors`);
 
-      svg.selectAll(".tick line")
-        .style("stroke", colors.axisLines);
+      // Add label if the segment height is greater than or equal to the clip threshold
+      if (segmentHeight >= parseInt(fonts.clip)) {
+        const label = d3.select(this.parentNode)
+          .append("text")
+          .attr("x", x(d.data.data) + x.bandwidth() / 2)
+          .attr("y", height - margin.top - margin.bottom)
+          .attr("text-anchor", "middle")
+          .attr("dy", "0.35em")
+          .style("fill", colors.label)
+          .style("font-size", fonts.label)
+          .style("font-family", fonts.family)
+          .style("pointer-events", "none")
+          .style("opacity", 0)
+          .text(repo.shortName);
 
-      svg.select(".domain")
-        .style("stroke", colors.axisLines);
+        label.transition()
+          .duration(animTime)
+          .attr("y", y(d[1]) + segmentHeight / 2 + 1)
+          .style("opacity", 1);
+      }
+    });
 
-      // Add total unique visits below each date
-      svg.append("g")
-        .attr("transform", `translate(0, ${height - margin.top - margin.bottom + parseInt(offsets.countOffset)})`)
-        .selectAll("text")
-        .data(dates)
-        .join("text")
-        .attr("x", d => x(d) + x.bandwidth() / 2)
-        .attr("y", 0)
-        .attr("text-anchor", "middle")
-        .style("fill", colors.axisText)
-        .style("font-size", fonts.axis)
-        .style("font-family", fonts.family)
-        .text(d => totalVisitsPerDate[formatDate(d)]);
+  // Draw the x-axis
+  svg.append("g")
+    .attr("transform", `translate(0, ${height - margin.top - margin.bottom})`)
+    .call(xAxis)
+    .selectAll("text")
+    .style("text-anchor", "middle")
+    .style("fill", colors.axisText)
+    .style("font-size", fonts.axis)
+    .style("font-family", fonts.family);
 
-      // Set the background color of the container div
-//      d3.select(container)
-//        .style("background-color", colors.bg);
+  svg.selectAll(".tick line")
+    .style("stroke", colors.axisLines);
+
+  svg.select(".domain")
+    .style("stroke", colors.axisLines);
+
+  // Add total unique visits below each date
+  svg.append("g")
+    .attr("transform", `translate(0, ${height - margin.top - margin.bottom + parseInt(offsets.countOffset)})`)
+    .selectAll("text")
+    .data(dates)
+    .join("text")
+    .attr("x", d => x(d) + x.bandwidth() / 2)
+    .attr("y", 0)
+    .attr("text-anchor", "middle")
+    .style("fill", colors.axisText)
+    .style("font-size", fonts.axis)
+    .style("font-family", fonts.family)
+    .text(d => totalVisitsPerDate[formatDate(d)]);
+
 
 //      return {
 //        svg,
@@ -813,7 +901,7 @@ begin
     }
 
 
-    getTrafficData(this.Param_GitHubToken, pageSize, false)
+    getTrafficData(this.Param_GitHubToken, pageSize, true)
       .then(processedData => {
 
         // Use the processedData for further processing or rendering
@@ -822,7 +910,7 @@ begin
         const container = document.getElementById("divChart");
         const width = this.Param_Width;
         const height = this.Param_Height;
-        const margin = { top: 10, right: 10, bottom: 50, left: 10 };
+        const margin = { top: 0, right: 10, bottom: 50, left: 10 };
         const colors = {
           bg: this.Param_Background,
           high: "#ff0000", // Color for repositories with high popularity
@@ -831,17 +919,21 @@ begin
           selected: "green", // Color for selected repositories
           axisText: "#999999", // Color for axis labels and total unique visits
           axisLines: "#cccccc", // Color for axis lines
-          label: "white" // Color for segment labels
+          label: "white", // Color for segment labels
+          percent: "white" // color of percent indicator
         };
         const fonts = {
           family: "Cairo, sans-serif", // Font family for all text elements
           axis: "10px", // Font size for axis labels
           repo: "10px", // Font size for repository names (unused)
           label: "10px", // Font size for segment labels
-          clip: "20px" // Minimum height threshold for displaying segment labels
+          clip: "20px", // Minimum height threshold for displaying segment labels
+          percent: "24px" // size of percent indicator
         };
         const offsets = {
-          countOffset: "30px" // Vertical offset between date labels and total unique visits
+          countOffset: "30px", // Vertical offset between date labels and total unique visits
+          percentLeft: "10px",
+          percentTop: "30px"
         };
         const rounding = "5px"; // Amount of rounding for bar segments
         const animTime = 1500; // Duration of the animation in milliseconds

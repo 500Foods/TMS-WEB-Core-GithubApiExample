@@ -9,6 +9,25 @@ html, body {
   top: 10px !important;
   left: 10px !important;
 }
+.calendar-summary {
+  display: flex;
+  flex-direction: row;
+  top: 70px;
+  left: 10px;
+  width: 450px;
+  position:absolute;
+  gap: 8px;
+}
+.calendar-label {
+  font-family: "Cairo";
+  font-size: 10px;
+  color: white;
+}
+.calendar-value {
+  font-family: "Cairo";
+  font-size: 10px;
+  color: yellow;
+}
 
 #divTabulator {
   max-height: 420px;
