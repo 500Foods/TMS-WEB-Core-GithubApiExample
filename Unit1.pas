@@ -1307,17 +1307,29 @@ begin
   WebEdit1.SetFocus;
 end;
 
+function GetIntervalToNextHour: Cardinal;
+var
+  RightNow: TDateTime;
+  NextHour: TDateTime;
+begin
+  RightNow := Now();
+  NextHour := EncodeTime(HourOf(RightNow) + 1, 0, 0, 0);
+  Result := Round((NextHour - RightNow) * MSecsPerDay);
+end;
+
 procedure TForm1.WebTimer1Timer(Sender: TObject);
 begin
+  WebTimer1.Enabled := False;
+  WebTimer1.Interval := GetIntervalToNextHour;
+  WebTimer1.Enabled := True;
+
   if Param_Mode = 'Calendar' then
   begin
     UpdateCalendar;
   end
   else if Param_Mode = 'Chart' then
   begin
-    await(RefreshTableData);
-    await(UpdateTable);
-//    UpdateChart;
+    UpdateChart;
   end;
 end;
 
