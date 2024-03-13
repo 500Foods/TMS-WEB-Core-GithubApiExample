@@ -687,6 +687,7 @@ function chartTraffic(
   // Parse and format dates
   const parseDate = d3.utcParse("%Y-%m-%dT%H:%M:%SZ");
   const formatDate = d3.timeFormat("%b%d");
+  const longDate = d3.timeFormat("%Y-%b-%d (%a)");
 
   // Filter the data to include the most recent 14 days
   const today = new Date();
@@ -751,6 +752,9 @@ function chartTraffic(
     .domain([0, d3.max(Object.values(totalVisitsPerDate))])
     .range([height - margin.top - margin.bottom, 0]);
 
+  // Add a new object to store the total unique visits across all repositories
+  const totalUniqueVisits = repoTotals.reduce((total, repo) => total + repo.total, 0);
+
   // Update the colors of the segments based on the selection
   function updateColors() {
     const selectedRepoTotals = [...selectedRepos].map(repoName => repoTotals.find(r => r.full_name === repoName));
@@ -770,24 +774,13 @@ function chartTraffic(
 
     if (selectedRepos.size > 0) {
       percentageText.text(`${percentage.toFixed(1)}%`);
+      uniqueText.text(`${totalSelectedVisits} of ${totalUniqueVisits}`);
     } else {
       percentageText.text("");
+      uniqueText.text("");
     }
   }
 
-  // Add a new object to store the total unique visits across all repositories
-  const totalUniqueVisits = repoTotals.reduce((total, repo) => total + repo.total, 0);
-
-  // Create a selection to hold the percentage text element
-  let percentageText = svg.append("text")
-    .attr("x", parseInt(offsets.percentLeft))
-    .attr("y", parseInt(offsets.percentTop))
-    .style("font-size", fonts.percent)
-    .style("font-family", fonts.family)
-    .style("fill", colors.percent)
-    .style("pointer-events", "none")
-    .style("text-shadow", "0px 0px 10px rgba(255, 255, 255, 1)")
-    .text("");
 
   // Create the stacked data
   const stackedData = d3.stack()
@@ -837,7 +830,7 @@ function chartTraffic(
       // Add tooltip
       d3.select(this)
         .append("title")
-        .text(`${repo.name}: ${visitCount} unique visitors`);
+        .text(`${repo.name}\n${visitCount} Unique Visitor(s)\n${longDate(d.data.data)}`);
 
       // Add label if the segment height is greater than or equal to the clip threshold
       if (segmentHeight >= parseInt(fonts.clip)) {
@@ -891,6 +884,28 @@ function chartTraffic(
     .style("font-family", fonts.family)
     .text(d => totalVisitsPerDate[formatDate(d)]);
 
+  // Create a selection to hold the percentage text element
+  let percentageText = svg.append("text")
+    .attr("x", parseInt(offsets.percentLeft))
+    .attr("y", parseInt(offsets.percentTop))
+    .style("font-size", fonts.percent)
+    .style("font-family", fonts.family)
+    .style("fill", colors.percent)
+    .style("pointer-events", "none")
+    .style("text-shadow", "0px 0px 10px rgba(255, 255, 255, 1)")
+    .text("");
+
+  // Create a selection to hold the unique vistits text element
+  let uniqueText = svg.append("text")
+    .attr("x", width - 3*parseInt(offsets.percentLeft))
+    .attr("y", parseInt(offsets.percentTop))
+    .style("font-size", fonts.percent)
+    .style("font-family", fonts.family)
+    .style("fill", colors.percent)
+    .style("text-anchor", "end")
+    .style("pointer-events", "none")
+    .style("text-shadow", "0px 0px 10px rgba(255, 255, 255, 1)")
+    .text("");
 
 //      return {
 //        svg,
