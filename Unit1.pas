@@ -23,6 +23,7 @@ type
     [async] procedure RefreshTableData;
     [async] procedure UpdateChart;
     [async] procedure UpdateCalendar;
+    [async] procedure UpdateWebTraffic;
     [async] function GetTrafficData(repo: String): JSValue;
     procedure divChartDblClick(Sender: TObject);
   private
@@ -363,7 +364,6 @@ divChart.parentNode.appendChild(summaryElement);
 end;
 
 procedure TForm1.UpdateChart;
-
 begin
   divChart.Top := Param_Top;
   divChart.Left := Param_Left;
@@ -1017,6 +1017,371 @@ begin
 end;
 
 
+procedure TForm1.UpdateWebTraffic;
+begin
+  divChart.Top := Param_Top;
+  divChart.Left := Param_Left;
+  divChart.Width := Param_Width;
+  divChart.Height := Param_Height;
+
+  {$IFNDEF WIN32}
+  asm {
+    await sleep(100);
+
+    divMain.style.setProperty('background-color', this.Param_Background,'important');
+    divMain.style.setProperty('position', 'absolute');
+    divMain.style.setProperty('width', '100%');
+    divMain.style.setProperty('height', '100%');
+
+    divChart.classList.replace('d-none','d-flex');
+    divChart.replaceChildren();
+
+   async function fetchWebData(url) {
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        throw error;
+      }
+    }
+
+function processWebData(jsonData) {
+  const processedData = [];
+
+  for (const website in jsonData) {
+    const { title, shortname, visitors } = jsonData[website];
+    const trafficData = Object.entries(visitors).map(([date, uniques]) => ({
+      timestamp: new Date(`${date}T00:00:00Z`).toISOString(),
+      uniques
+    }));
+
+    processedData.push({
+      full_name: title,
+      name: title,
+      shortName: shortname,
+      traffic: trafficData
+    });
+  }
+
+  // Sort the repositories based on total unique visitors in descending order
+  processedData.sort((a, b) => {
+    const totalA = a.traffic.reduce((sum, entry) => sum + entry.uniques, 0);
+    const totalB = b.traffic.reduce((sum, entry) => sum + entry.uniques, 0);
+    return totalB - totalA;
+  });
+
+  return processedData;
+}
+
+    function chartWebTraffic(
+      data,
+      container,
+      width,
+      height,
+      margin,
+      colors,
+      fonts = {
+        family: "Arial, sans-serif",
+        axis: "12px",
+        repo: "12px",
+        label: "14px",
+        clip: "25px",
+        percent: "14px"
+      },
+      offsets = {
+        countOffset: "15px",
+        pctLeft: "10px",
+        pctTop: "10px"
+      },
+      rounding = "5px",
+      animTime = 1500
+    ) {
+      // Parse and format dates
+      const parseDate = d3.utcParse("%Y-%m-%dT%H:%M:%SZ");
+      const formatDate = d3.timeFormat("%b%d");
+      const longDate = d3.timeFormat("%Y-%b-%d (%a)");
+
+      // Filter the data to include the most recent 14 days
+      const today = new Date();
+      const mostRecentDate = d3.max(data.flatMap(d => d.traffic), d => new Date(d.timestamp));
+      const startDate = d3.timeDay.offset(mostRecentDate, -14);
+      const filteredData = data.map(repo => ({
+        ...repo,
+        traffic: repo.traffic.filter(d => new Date(d.timestamp) >= startDate && new Date(d.timestamp) <= mostRecentDate)
+      }));
+
+      // Create an array of dates for the most recent 14 days
+      // Seems Github does fun things with dates, so let's lop off the last one from the chart.
+      var dates = d3.timeDays(startDate, d3.timeDay.offset(mostRecentDate, 1));
+      dates.pop();
+
+      // Create an object to store the total unique visits per date
+      const totalVisitsPerDate = {};
+      dates.forEach(date => {
+        totalVisitsPerDate[formatDate(date)] = filteredData.reduce((total, repo) => {
+          const visit = repo.traffic.find(t => formatDate(new Date(t.timestamp)) === formatDate(date));
+          return total + (visit ? visit.uniques : 0);
+        }, 0);
+      });
+
+      // Calculate the total unique visitors for each repository
+      const repoTotals = filteredData.map(repo => ({
+        full_name: repo.full_name,
+        total: repo.traffic.reduce((sum, d) => sum + d.uniques, 0)
+      }));
+
+      // Assign colors to the repositories based on their total unique visitors
+      const repoColors = repoTotals.map(repo => {
+        if (repo.total <= 5) return colors.low;
+        if (repo.total <= 25) return colors.med;
+        return colors.high;
+      });
+
+      // Create a set to store the selected repositories
+      const selectedRepos = new Set();
+
+      container.replaceChildren();
+
+      // Set up the SVG container
+      const svg = d3.select(container)
+        .append("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .append("g")
+        .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+      // Set up the x-axis scale and axis
+      const x = d3.scaleBand()
+        .domain(dates)
+        .range([0, width - margin.left - margin.right])
+        .padding(0.1);
+
+      const xAxis = d3.axisBottom(x)
+        .tickFormat(d => formatDate(d));
+
+      // Set up the y-axis scale and axis
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(Object.values(totalVisitsPerDate))])
+        .range([height - margin.top - margin.bottom, 0]);
+
+      // Add a new object to store the total unique visits across all repositories
+      const totalUniqueVisits = repoTotals.reduce((total, repo) => total + repo.total, 0);
+
+      // Update the colors of the segments based on the selection
+      function updateColors() {
+        const selectedRepoTotals = [...selectedRepos].map(repoName => repoTotals.find(r => r.full_name === repoName));
+        const totalSelectedVisits = selectedRepoTotals.reduce((total, repo) => total + repo.total, 0);
+        const percentage = totalSelectedVisits / totalUniqueVisits * 100;
+
+        svg.selectAll("rect")
+          .attr("fill", function(d) {
+            const repoName = d3.select(this.parentNode).datum().key;
+            if (selectedRepos.has(repoName)) {
+              return colors.selected;
+            } else {
+              const repoIndex = filteredData.findIndex(r => r.full_name === repoName);
+              return repoColors[repoIndex];
+            }
+          });
+
+        if (selectedRepos.size > 0) {
+          percentageText.text(`${percentage.toFixed(1)}%`);
+          uniqueText.text(`${totalSelectedVisits} of ${totalUniqueVisits}`);
+        } else {
+          percentageText.text("");
+          uniqueText.text("");
+        }
+      }
+
+      // Create the stacked data
+      const stackedData = d3.stack()
+        .keys(filteredData.map(d => d.full_name))
+        .value((d, key) => {
+          const repo = filteredData.find(r => r.full_name === key);
+          const visit = repo.traffic.find(t => formatDate(new Date(t.timestamp)) === formatDate(d.data));
+          return visit ? visit.uniques : 0;
+        })
+        (dates.map(date => ({ data: date })));
+
+      console.log(stackedData);
+
+      // Draw the stacked bars
+      svg.append("g")
+        .selectAll("g")
+        .data(stackedData)
+        .join("g")
+        .attr("fill", (d, i) => repoColors[i])
+        .selectAll("rect")
+        .data(d => d)
+        .join("rect")
+        .attr("x", d => x(d.data.data))
+        .attr("y", height - margin.top - margin.bottom)
+        .attr("height", 0)
+        .attr("width", x.bandwidth())
+        .attr("rx", rounding)
+        .attr("ry", rounding)
+        .attr("cursor", "pointer")
+        .on("click", function(event, d) {
+          const repoName = d3.select(this.parentNode).datum().key;
+          if (selectedRepos.has(repoName)) {
+            selectedRepos.delete(repoName);
+          } else {
+            selectedRepos.add(repoName);
+          }
+          updateColors();
+        })
+        .transition()
+        .duration(animTime)
+        .attr("y", d => y(d[1]) + 1)
+        .attr("height", d => Math.max(y(d[0]) - y(d[1]) - 1, 0))
+        .each(function(d) {
+          const repoName = d3.select(this.parentNode).datum().key;
+          const repo = filteredData.find(r => r.full_name === repoName);
+          const visitCount = d[1] - d[0];
+          const segmentHeight = Math.max(y(d[0]) - y(d[1]) - 1, 0);
+
+          // Add tooltip
+          d3.select(this)
+            .append("title")
+            .text(`${repo.name}\n${visitCount} Unique Visitor(s)\n${longDate(d.data.data)}`);
+
+          // Add label if the segment height is greater than or equal to the clip threshold
+          if (segmentHeight >= parseInt(fonts.clip)) {
+            const label = d3.select(this.parentNode)
+              .append("text")
+              .attr("x", x(d.data.data) + x.bandwidth() / 2)
+              .attr("y", height - margin.top - margin.bottom)
+              .attr("text-anchor", "middle")
+              .attr("dy", "0.35em")
+              .style("fill", colors.label)
+              .style("font-size", fonts.label)
+              .style("font-family", fonts.family)
+              .style("pointer-events", "none")
+              .style("opacity", 0)
+              .text(repo.shortName);
+
+            label.transition()
+              .duration(animTime)
+              .attr("y", y(d[1]) + segmentHeight / 2 + 1)
+              .style("opacity", 1);
+          }
+        });
+
+      // Draw the x-axis
+      svg.append("g")
+        .attr("transform", `translate(0, ${height - margin.top - margin.bottom})`)
+        .call(xAxis)
+        .selectAll("text")
+        .style("text-anchor", "middle")
+        .style("fill", colors.axisText)
+        .style("font-size", fonts.axis)
+        .style("font-family", fonts.family);
+
+      svg.selectAll(".tick line")
+        .style("stroke", colors.axisLines);
+
+      svg.select(".domain")
+        .style("stroke", colors.axisLines);
+
+      // Add total unique visits below each date
+      svg.append("g")
+        .attr("transform", `translate(0, ${height - margin.top - margin.bottom + parseInt(offsets.countOffset)})`)
+        .selectAll("text")
+        .data(dates)
+        .join("text")
+        .attr("x", d => x(d) + x.bandwidth() / 2)
+        .attr("y", 0)
+        .attr("text-anchor", "middle")
+        .style("fill", colors.axisText)
+        .style("font-size", fonts.axis)
+        .style("font-family", fonts.family)
+        .text(d => totalVisitsPerDate[formatDate(d)]);
+
+      // Create a selection to hold the percentage text element
+      let percentageText = svg.append("text")
+        .attr("x", parseInt(offsets.pctLeft))
+        .attr("y", parseInt(offsets.pctTop))
+        .style("font-size", fonts.percent)
+        .style("font-family", fonts.family)
+        .style("fill", colors.percent)
+        .style("pointer-events", "none")
+        .style("text-shadow", "0px 0px 10px rgba(255, 255, 255, 1)")
+        .text("");
+
+      // Create a selection to hold the unique vistits text element
+      let uniqueText = svg.append("text")
+        .attr("x", width - 3*parseInt(offsets.pctLeft))
+        .attr("y", parseInt(offsets.pctTop))
+        .style("font-size", fonts.percent)
+        .style("font-family", fonts.family)
+        .style("fill", colors.percent)
+        .style("text-anchor", "end")
+        .style("pointer-events", "none")
+        .style("text-shadow", "0px 0px 10px rgba(255, 255, 255, 1)")
+        .text("");
+    }
+
+    // Fetch the data from the JSON file
+    const jsonUrl = 'https://www.500foods.com/visitordata.json';
+    fetchWebData(jsonUrl)
+      .then(jsonData => {
+        const processedData = processWebData(jsonData);
+        console.log(processedData);
+
+        const container = document.getElementById("divChart");
+        const width = 450;
+        const height = 600;
+        const margin = { top: 10, right: 10, bottom: 150, left: 10 };
+        const colors = {
+          bg: "#f0f0f0",
+          high: "#0000ff", // Color for repositories with high popularity
+          med: "#0000b0", // Color for repositories with medium popularity
+          low: "#000080", // Color for repositories with low popularity
+          selected: "#ff00ff", // Color for selected repositories
+          axisText: "#999999", // Color for axis labels and total unique visits
+          axisLines: "#cccccc", // Color for axis lines
+          label: "white", // Color for segment labels
+          percent: "white" // color of percent indicator
+        };
+        const fonts = {
+          family: "Cario, sans-serif", // Font family for all text elements
+          axis: "10px", // Font size for axis labels
+          repo: "10px", // Font size for repository names (unused)
+          label: "14px", // Font size for segment labels
+          clip: "25px", // Minimum height threshold for displaying segment labels
+          percent: "14px" // size of percent indicator
+        };
+        const offsets = {
+          countOffset: "30px", // Vertical offset between date labels and total unique visits
+          pctLeft: "5px",
+          pctTop: "5px"
+        };
+        const rounding = "5px"; // Amount of rounding for bar segments
+        const animTime = 1500; // Duration of the animation in milliseconds
+
+        chartWebTraffic(
+          processedData,
+          container,
+          width,
+          height,
+          margin,
+          colors,
+          fonts,
+          offsets,
+          rounding,
+          animTime
+        );
+      })
+      .catch(error => {
+        console.error('Error processing data:', error);
+      });
+   } end;
+   {$ENDIF}
+   divChart.Visible := True;
+end;
+
 procedure TForm1.WebEdit1KeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
   if (Key = VK_RETURN) then
@@ -1302,6 +1667,18 @@ begin
 //    await(RefreshTableData);
 //    await(UpdateTable);
     UpdateChart;
+  end
+  else if Param_Mode = 'WebTraffic' then
+  begin
+    document.documentElement.setAttribute('style','overflow:hidden;');
+    WebEdit1.Visible := False;
+    divTabulator.Visible := False;
+    Form1.ElementClassName := '';
+    divMain.ElementClassName := '';
+    divChart.ElementClassName := 'overflow-hidden order-1';
+//    await(RefreshTableData);
+//    await(UpdateTable);
+    UpdateWebTraffic;
   end
   else
   begin
