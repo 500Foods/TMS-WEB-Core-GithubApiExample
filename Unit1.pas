@@ -43,6 +43,7 @@ type
     automate: Boolean;
 
     Param_Mode: String;
+    Param_Account: String;
     Param_GitHubToken: String;
     Param_Calendar: String;
 
@@ -411,6 +412,12 @@ begin
         page++;
       }
 
+      for(var i = 0; i < repos.length; i++) {
+        if (!repos[i].full_name.startsWith(this.Param_Account)) {
+          repos.splice(i,1);
+        }
+      }
+
       const updatedRepos = await Promise.all(
         repos.map(async (repo) => {
           const [trafficData, discussionsData] = await Promise.all([
@@ -422,24 +429,24 @@ begin
               headers: {
                 ...headers,
                 'Content-Type': 'application/json',
-              },
+            },
               body: JSON.stringify({
                     query: `
                   query($owner: String!, $name: String!) {
                     repository(owner: $owner, name: $name) {
                       discussions {
-                        totalCount
+                       totalCount
                       }
                     }
               }
                 `,
                 variables: {
-                  owner: repo.owner.login,
+                 owner: repo.owner.login,
                   name: repo.name,
                 },
               }),
-            }).then(res => res.json()),
-          ]);
+            }).then(res => res.json())
+           ]);
 
           return {
             ...repo,
@@ -458,12 +465,11 @@ begin
             watchers_count: repo.watchers_count || 0,
             discussions_count: discussionsData.data.repository.discussions.totalCount,
             subscribers_count: repo.subscribers_count || 0,
-          };
+          }
         })
-      );
-
+      )
       return updatedRepos;
-    };
+    }
 
 
     const processTrafficData = (repos) => {
@@ -920,8 +926,6 @@ function chartTraffic(
       .then(processedData => {
 
         // Use the processedData for further processing or rendering
-        console.log(processedData);
-
         const container = document.getElementById("divChart");
         const width = this.Param_Width;
         const height = this.Param_Height;
@@ -1100,13 +1104,13 @@ function processWebData(jsonData) {
     ) {
       // Parse and format dates
       const parseDate = d3.utcParse("%Y-%m-%dT%H:%M:%SZ");
-      const formatDate = d3.timeFormat("%b%d");
-      const longDate = d3.timeFormat("%Y-%b-%d (%a)");
+      const formatDate = d3.utcFormat("%b%d");
+      const longDate = d3.utcFormat("%Y-%b-%d (%a)");
 
       // Filter the data to include the most recent 14 days
       const today = new Date();
       const mostRecentDate = d3.max(data.flatMap(d => d.traffic), d => new Date(d.timestamp));
-      const startDate = d3.timeDay.offset(mostRecentDate, -14);
+      const startDate = d3.timeDay.offset(mostRecentDate, -13);
       const filteredData = data.map(repo => ({
         ...repo,
         traffic: repo.traffic.filter(d => new Date(d.timestamp) >= startDate && new Date(d.timestamp) <= mostRecentDate)
@@ -1114,7 +1118,7 @@ function processWebData(jsonData) {
 
       // Create an array of dates for the most recent 14 days
       // Seems Github does fun things with dates, so let's lop off the last one from the chart.
-      var dates = d3.timeDays(startDate, d3.timeDay.offset(mostRecentDate, 1));
+      var dates = d3.timeDays(startDate, d3.timeDay.offset(mostRecentDate, 2));
       dates.pop();
 
       // Create an object to store the total unique visits per date
@@ -1205,7 +1209,6 @@ function processWebData(jsonData) {
         })
         (dates.map(date => ({ data: date })));
 
-      console.log(stackedData);
 
       // Draw the stacked bars
       svg.append("g")
@@ -1328,12 +1331,11 @@ function processWebData(jsonData) {
     fetchWebData(jsonUrl)
       .then(jsonData => {
         const processedData = processWebData(jsonData);
-        console.log(processedData);
 
         const container = document.getElementById("divChart");
-        const width = 450;
-        const height = 600;
-        const margin = { top: 10, right: 10, bottom: 150, left: 10 };
+        const width = this.Param_Width;
+        const height = this.Param_Height;
+        const margin = { top: 10, right: 10, bottom: 160, left: 10 };
         const colors = {
           bg: "#f0f0f0",
           high: "#0000ff", // Color for repositories with high popularity
@@ -1347,10 +1349,10 @@ function processWebData(jsonData) {
         };
         const fonts = {
           family: "Cario, sans-serif", // Font family for all text elements
-          axis: "10px", // Font size for axis labels
-          repo: "10px", // Font size for repository names (unused)
-          label: "14px", // Font size for segment labels
-          clip: "25px", // Minimum height threshold for displaying segment labels
+          axis: "9px", // Font size for axis labels
+          repo: "9px", // Font size for repository names (unused)
+          label: "10px", // Font size for segment labels
+          clip: "12px", // Minimum height threshold for displaying segment labels
           percent: "14px" // size of percent indicator
         };
         const offsets = {
@@ -1592,6 +1594,7 @@ begin
   Highlight := '[none]';
 
   Param_Mode := 'UI';
+  Param_Account := '';
   Param_GitHubToken := '';
   Param_Calendar := '';
 
@@ -1608,6 +1611,7 @@ begin
   // See if they're already in localStorage
 
   Param_Mode := TWebLocalStorage.GetValue('GAE.M');
+  Param_Account := TWebLocalStorage.GetValue('GAE.A');
   Param_GitHubToken := TWebLocalStorage.GetValue('GAE.G');
   Param_Calendar := TWebLocalStorage.GetValue('GAE.C');
 
@@ -1623,6 +1627,7 @@ begin
 
   // Load up any that are passed as URL parameters
   if GetQueryParam('M') <> '' then Param_Mode := GetQueryParam('M');
+  if GetQueryParam('A') <> '' then Param_Account := GetQueryParam('A');
   if GetQueryParam('G') <> '' then Param_GitHubToken := GetQueryParam('G');
   if GetQueryParam('C') <> '' then Param_Calendar := GetQueryParam('C');
 
