@@ -1138,8 +1138,8 @@ function processWebData(jsonData) {
 
       // Assign colors to the repositories based on their total unique visitors
       const repoColors = repoTotals.map(repo => {
-        if (repo.total <= 5) return colors.low;
-        if (repo.total <= 25) return colors.med;
+        if (repo.total <= 50) return colors.low;
+        if (repo.total <= 250) return colors.med;
         return colors.high;
       });
 
@@ -1335,30 +1335,30 @@ function processWebData(jsonData) {
         const container = document.getElementById("divChart");
         const width = this.Param_Width;
         const height = this.Param_Height;
-        const margin = { top: 10, right: 10, bottom: 160, left: 10 };
+        const margin = { top: 5, right: 10, bottom: 160, left: 10 };
         const colors = {
           bg: "#f0f0f0",
-          high: "#0000ff", // Color for repositories with high popularity
-          med: "#0000b0", // Color for repositories with medium popularity
-          low: "#000080", // Color for repositories with low popularity
-          selected: "#ff00ff", // Color for selected repositories
+          high: "#008000", // Color for repositories with high popularity
+          med: "#006000", // Color for repositories with medium popularity
+          low: "#004000", // Color for repositories with low popularity
+          selected: "#40A040", // Color for selected repositories
           axisText: "#999999", // Color for axis labels and total unique visits
           axisLines: "#cccccc", // Color for axis lines
           label: "white", // Color for segment labels
           percent: "white" // color of percent indicator
         };
         const fonts = {
-          family: "Cario, sans-serif", // Font family for all text elements
+          family: "Cairo, sans-serif", // Font family for all text elements
           axis: "9px", // Font size for axis labels
           repo: "9px", // Font size for repository names (unused)
           label: "10px", // Font size for segment labels
-          clip: "12px", // Minimum height threshold for displaying segment labels
-          percent: "14px" // size of percent indicator
+          clip: "15px", // Minimum height threshold for displaying segment labels
+          percent: "24px" // size of percent indicator
         };
         const offsets = {
-          countOffset: "30px", // Vertical offset between date labels and total unique visits
-          pctLeft: "5px",
-          pctTop: "5px"
+          countOffset: "28px", // Vertical offset between date labels and total unique visits
+          pctLeft: "10px",
+          pctTop: "30px"
         };
         const rounding = "5px"; // Amount of rounding for bar segments
         const animTime = 1500; // Duration of the animation in milliseconds
@@ -1727,6 +1727,10 @@ begin
   else if Param_Mode = 'Chart' then
   begin
     UpdateChart;
+  end
+  else if Param_Mode = 'WebTraffic' then
+  begin
+    UpdateWebTraffic;
   end;
 end;
 
