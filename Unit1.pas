@@ -412,6 +412,7 @@ begin
         page++;
       }
 
+      // Filter out other repositories
       for(var i = 0; i < repos.length; i++) {
         if (!repos[i].full_name.startsWith(this.Param_Account)) {
           repos.splice(i,1);
@@ -1327,7 +1328,7 @@ function processWebData(jsonData) {
     }
 
     // Fetch the data from the JSON file
-    const jsonUrl = 'https://www.500foods.com/visitordata.json';
+    const jsonUrl = 'https://www.500foods.com/Analytics/visitordata.json';
     fetchWebData(jsonUrl)
       .then(jsonData => {
         const processedData = processWebData(jsonData);
